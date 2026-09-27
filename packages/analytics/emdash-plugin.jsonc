@@ -27,8 +27,13 @@
 			]
 		}
 	},
-	// Registry search indexes slug and description and has no keywords
-	// field, so every provider this plugin supports has to be named here.
+
+	// Registry results, and the Plugins list of a registry install, show this;
+	// without it they show the slug. In-process installs always show the slug.
+	"name": "Analytics",
+
+	// Registry search matches the description and the keywords, so every
+	// provider this plugin supports is named in both.
 	"description": "Cloudflare Web Analytics on the EmDash dashboard and next to your content: visits, page views, top pages, referrers and countries, with per-entry performance mapped back to the entries that produced it.",
 	"keywords": ["analytics", "cloudflare", "dashboard", "widget", "content"],
 
