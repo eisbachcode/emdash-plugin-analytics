@@ -9,7 +9,7 @@ entry that earned them rather than to a URL string.
 > **Status: early releases.** Cloudflare Web Analytics plus demo data: a
 > dashboard widget, an Analytics page with a setup check, a per-entry page,
 > an Analytics panel in the entry editor and four read-only MCP tools.
-> Tested on EmDash 0.39 and 0.40. See "Not in this version".
+> Tested on EmDash 0.39 to 0.41. See "Not in this version".
 
 The screenshots show demo data on a site made from EmDash's blog template.
 
@@ -137,7 +137,7 @@ After an update that changes a tool, EmDash stops serving the tools until
 they are approved again, but the switch stays on. Turn it off and on.
 
 **Sandboxed installs only, for now.** A plugin registered in `plugins: []`
-gets none of its MCP tools on EmDash 0.39 and 0.40: the plugin build keeps
+gets none of its MCP tools on EmDash 0.39 to 0.41: the plugin build keeps
 the tool declarations out of the runtime module, and EmDash's in-process
 loader looks for them only there. Under `sandboxed: []` or installed from
 the registry, the tools work. This is an EmDash limitation, not a setting.
