@@ -19,11 +19,11 @@
 		"requires": { "env:emdash": ">=0.39.0" },
 		"artifacts": {
 			"screenshots": [
-				{ "file": "screenshots/analytics-page.png", "lang": "en" },
-				{ "file": "screenshots/per-entry.png", "lang": "en" },
-				{ "file": "screenshots/widget.png", "lang": "en" },
-				{ "file": "screenshots/editor-panel.png", "lang": "en" },
-				{ "file": "screenshots/setup-check.png", "lang": "en" }
+				{ "file": "images/analytics-page.png", "lang": "en" },
+				{ "file": "images/per-entry.png", "lang": "en" },
+				{ "file": "images/widget.png", "lang": "en" },
+				{ "file": "images/editor-panel.png", "lang": "en" },
+				{ "file": "images/setup-check.png", "lang": "en" }
 			]
 		}
 	},
@@ -34,7 +34,11 @@
 
 	// Registry search matches the description and the keywords, so every
 	// provider this plugin supports is named in both.
-	"description": "Cloudflare Web Analytics on the EmDash dashboard and next to your content: visits, page views, top pages, referrers and countries, with per-entry performance mapped back to the entries that produced it.",
+	//
+	// The registry profile refuses a description over 140 graphemes.
+	// `emdash-plugin validate` accepts up to 1,024 characters, so the failure
+	// only shows at `release setup` or publish.
+	"description": "Cloudflare Web Analytics on the EmDash dashboard and next to your content: traffic, top pages, referrers, countries and views per entry.",
 	"keywords": ["analytics", "cloudflare", "dashboard", "widget", "content"],
 
 	// Trust contract.

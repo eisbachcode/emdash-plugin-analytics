@@ -19,14 +19,14 @@ A **Traffic** card on the dashboard: visits and page views for the last
 seven days against the week before, the five most viewed pages with the
 entry they belong to, and when the numbers were last synced.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/screenshots/widget.png" width="554" alt="The Traffic widget: visits and page views for the last 7 days with their change against the previous week, and the five most viewed pages with entry title, path and views">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/images/widget.png" width="554" alt="The Traffic widget: visits and page views for the last 7 days with their change against the previous week, and the five most viewed pages with entry title, path and views">
 
 ## The Analytics page
 
 **Plugins → Analytics** in the admin sidebar, or "Open analytics" on the
 dashboard widget. Editors and admins see it.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/screenshots/analytics-page.png" width="820" alt="The Analytics page over 30 days: visits and page views with their change, a daily chart, top entries with collection, path, views and visits, and tables of referrers and countries">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/images/analytics-page.png" width="820" alt="The Analytics page over 30 days: visits and page views with their change, a daily chart, top entries with collection, path, views and visits, and tables of referrers and countries">
 
 The page asks the provider live on every load, so it has numbers from the
 first minute after setup; it does not wait for the sync. It only ever asks
@@ -67,13 +67,13 @@ views, so the right one can be copied into the settings.
 The check only reads; values are entered in the plugin's settings form. It
 makes one request to Cloudflare.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/screenshots/setup-check.png" width="820" alt="The setup check with every row OK: data source, site URL, content index with 8 entries matched, scheduled sync and last sync">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/images/setup-check.png" width="820" alt="The setup check with every row OK: data source, site URL, content index with 8 entries matched, scheduled sync and last sync">
 
 ## Analytics per entry
 
 **Plugins → Analytics per entry**, or "Per entry" on the Analytics page.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/screenshots/per-entry.png" width="820" alt="Analytics per entry: every published entry with its collection, path, page views over 7 and 30 days and publish date, most viewed first">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/images/per-entry.png" width="820" alt="Analytics per entry: every published entry with its collection, path, page views over 7 and 30 days and publish date, most viewed first">
 
 Every published entry with its page views over the last 7 and 30 days,
 today included, by collection or across all of them. Click a column header
@@ -101,7 +101,7 @@ URL.
 
 ## The editor panel
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/screenshots/editor-panel.png" width="375" alt="The Analytics panel in the entry editor: page views over the last 7 and 30 days and the path they are counted at">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugins/main/packages/analytics/images/editor-panel.png" width="375" alt="The Analytics panel in the entry editor: page views over the last 7 and 30 days and the path they are counted at">
 
 In the entry editor, the **Analytics** panel shows that entry's 7- and 30-day
 page views and the path they are counted at, and on a translated entry
