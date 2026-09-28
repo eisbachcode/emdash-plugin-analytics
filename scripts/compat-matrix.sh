@@ -21,7 +21,7 @@
 # (`emdash/plugin-test-runtime` became `emdash/internal/plugin-test-runtime`),
 # so no harness before plugin-test 0.2.6 can start a 1.0 host. A version
 # written as `version:harness` also overrides plugin-test, for example
-# `1.0.1-rc.0:0.2.6-rc.0`.
+# `1.0.1:0.2.6`.
 #
 # Usage: scripts/compat-matrix.sh [version[:harness]...]      (default: 0.39.1 0.40.0)
 
