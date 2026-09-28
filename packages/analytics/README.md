@@ -9,7 +9,8 @@ entry that earned them rather than to a URL string.
 > **Status: early releases.** Cloudflare Web Analytics plus demo data: a
 > dashboard widget, an Analytics page with a setup check, a per-entry page,
 > an Analytics panel in the entry editor and four read-only MCP tools.
-> Tested on EmDash 0.39 to 0.41. See "Not in this version".
+> Tested on EmDash 0.39 to 0.42 and on the 1.0 release candidate
+> (1.0.1-rc.0). See "Not in this version".
 
 The screenshots show demo data on a site made from EmDash's blog template.
 
@@ -136,11 +137,11 @@ To use them:
 After an update that changes a tool, EmDash stops serving the tools until
 they are approved again, but the switch stays on. Turn it off and on.
 
-**Sandboxed installs only, for now.** A plugin registered in `plugins: []`
-gets none of its MCP tools on EmDash 0.39 to 0.41: the plugin build keeps
-the tool declarations out of the runtime module, and EmDash's in-process
-loader looks for them only there. Under `sandboxed: []` or installed from
-the registry, the tools work. This is an EmDash limitation, not a setting.
+**Registered in `plugins: []`, the tools need EmDash 0.42 or later.** On
+0.39 to 0.41, EmDash's in-process loader looks for tool declarations only in
+the plugin's runtime module, where the plugin build leaves them out, so such
+a site gets none. Under `sandboxed: []` or installed from the registry, the
+tools work on every EmDash version this plugin supports.
 
 ## What you need
 
@@ -173,6 +174,30 @@ your sites through the analytics data instead.
 
 Prefer an **account-owned** token over a user-owned one. A user token dies
 with that user's membership; an account-owned token does not.
+
+## Install
+
+```sh
+pnpm add @eisbachcode/emdash-plugin-analytics
+```
+
+```js
+// astro.config.mjs
+import analytics from "@eisbachcode/emdash-plugin-analytics";
+
+export default defineConfig({
+  integrations: [
+    emdash({
+      // database, storage, ...
+      plugins: [analytics],
+    }),
+  ],
+});
+```
+
+To run it sandboxed, list it under `sandboxed: [analytics]` instead. That
+needs a sandbox runner, which on Cloudflare means the Workers Paid plan; see
+EmDash's [plugin sandbox guide](https://docs.emdashcms.com/deployment/plugin-sandbox/).
 
 ## Settings
 
