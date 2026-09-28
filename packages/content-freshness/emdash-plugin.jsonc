@@ -18,7 +18,7 @@
 	"release": {
 		"requires": { "env:emdash": ">=0.39.0" }
 	},
-	"description": "Audits your content for staleness: entries untouched for too long, missing or badly sized SEO descriptions, forgotten drafts, schedules that never fired, and collections without a URL pattern.",
+	"description": "Audits your content: stale entries, weak or missing SEO descriptions, forgotten drafts, schedules that never fired and missing URL patterns.",
 	"keywords": ["content", "audit", "seo", "maintenance", "editorial"],
 
 	// Trust contract: read content and the collection list, nothing else.
