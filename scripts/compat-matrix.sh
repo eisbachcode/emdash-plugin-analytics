@@ -17,7 +17,13 @@
 # the workerd harness. `shared` uses plain vitest with no host, and a `link:`ed
 # package has no npm versions to override against.
 #
-# Usage: scripts/compat-matrix.sh [version...]      (default: 0.39.1 0.40.0)
+# The reverse happened with EmDash 1.0: it moved the module the harness loads
+# (`emdash/plugin-test-runtime` became `emdash/internal/plugin-test-runtime`),
+# so no harness before plugin-test 0.2.6 can start a 1.0 host. A version
+# written as `version:harness` also overrides plugin-test, for example
+# `1.0.1-rc.0:0.2.6-rc.0`.
+#
+# Usage: scripts/compat-matrix.sh [version[:harness]...]      (default: 0.39.1 0.40.0)
 
 set -euo pipefail
 
@@ -97,8 +103,11 @@ run_suites() {
 echo "baseline (harness's own pinned host, no overrides)"
 run_suites "baseline"
 
-for v in "${VERSIONS[@]}"; do
-	echo "emdash $v"
+for spec in "${VERSIONS[@]}"; do
+	v="${spec%%:*}"
+	harness=""
+	[ "$spec" != "$v" ] && harness="${spec#*:}"
+	echo "emdash $v${harness:+ (plugin-test $harness)}"
 	git checkout -- pnpm-workspace.yaml pnpm-lock.yaml
 	cat >> pnpm-workspace.yaml <<-EOF
 
@@ -107,16 +116,19 @@ for v in "${VERSIONS[@]}"; do
 	  "@emdash-cms/cloudflare": $v
 	  "@emdash-cms/blocks": $v
 	EOF
+	if [ -n "$harness" ]; then
+		printf '  "@emdash-cms/plugin-test": %s\n' "$harness" >> pnpm-workspace.yaml
+	fi
 	run_suites "$v"
 done
 
 echo
 printf '%-26s %-12s' "package" "baseline"
-for v in "${VERSIONS[@]}"; do printf '%-12s' "$v"; done
+for spec in "${VERSIONS[@]}"; do printf '%-12s' "${spec%%:*}"; done
 echo
 for p in "${PKGS[@]}"; do
 	printf '%-26s %-12s' "$p" "$(lookup baseline "$p")"
-	for v in "${VERSIONS[@]}"; do printf '%-12s' "$(lookup "$v" "$p")"; done
+	for spec in "${VERSIONS[@]}"; do printf '%-12s' "$(lookup "${spec%%:*}" "$p")"; done
 	echo
 done
 echo

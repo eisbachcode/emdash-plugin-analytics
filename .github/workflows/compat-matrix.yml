@@ -41,7 +41,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: ./scripts/compat-matrix.sh 0.39.0 0.39.1 0.40.0 0.40.1 0.41.0
+      - run: ./scripts/compat-matrix.sh 0.39.0 0.39.1 0.40.0 0.40.1 0.41.0 0.42.0 1.0.1-rc.0:0.2.6-rc.0
 
   latest:
     name: current EmDash (informational)
@@ -59,7 +59,12 @@ jobs:
         # dist-tags.latest, not the highest semver: emdash@1.0.0 exists on npm
         # but was published 2026-04-27 and deprecated, and it outranks every
         # real 0.x release in semver order.
-        run: echo "version=$(npm view emdash dist-tags.latest)" >> "$GITHUB_OUTPUT"
+        #
+        # The harness is the current plugin-test too: one from before 0.2.6
+        # cannot start an EmDash 1.x host.
+        run: |
+          echo "version=$(npm view emdash dist-tags.latest)" >> "$GITHUB_OUTPUT"
+          echo "harness=$(npm view @emdash-cms/plugin-test dist-tags.latest)" >> "$GITHUB_OUTPUT"
       - run: |
-          echo "current EmDash on npm: ${{ steps.resolve.outputs.version }}"
-          ./scripts/compat-matrix.sh "${{ steps.resolve.outputs.version }}"
+          echo "current EmDash on npm: ${{ steps.resolve.outputs.version }} (plugin-test ${{ steps.resolve.outputs.harness }})"
+          ./scripts/compat-matrix.sh "${{ steps.resolve.outputs.version }}:${{ steps.resolve.outputs.harness }}"

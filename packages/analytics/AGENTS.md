@@ -57,9 +57,10 @@ at the workspace root is enough.
   does not match, so a loader's result and its declared output have to
   agree key for key. `tests/tools.test.ts` checks each answer against the
   schema the build wrote.
-- **MCP tools reach sandboxed installs only.** EmDash's in-process loader
-  reads tools from the runtime module, where the build removed them, so a
-  `plugins: []` install lists none. Test tools sandboxed.
+- **In `plugins: []`, MCP tools need EmDash 0.42.0 or later.** Older
+  in-process loaders read tools from the runtime module, where the build
+  removes them, so a `plugins: []` install on 0.39 to 0.41 lists none.
+  Sandboxed installs have them on every supported version.
 - **Block Kit keeps no state.** Anything a page needs to remember between
   interactions travels in an `action_id`, a button `value` or a table
   cursor (see `src/ui/content.ts`).
