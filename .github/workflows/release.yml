@@ -9,9 +9,10 @@
 # The file name is part of that trust configuration on npmjs.com; renaming the
 # file breaks publishing until the setting is changed too.
 #
-# Only the publish job may mint the OIDC token. It installs nothing from the
-# lockfile's scripts and builds nothing: the pack job builds without any
-# credential and hands over tarballs.
+# Only the publish job may mint an OIDC token for npm. It installs nothing
+# from the lockfile's scripts and builds nothing: the pack job builds without
+# any credential and hands over tarballs. The publish job runs in the `npm`
+# environment, which the trusted publisher on npmjs.com requires.
 name: release
 
 on:
@@ -93,9 +94,13 @@ jobs:
   publish:
     needs: pack
     runs-on: ubuntu-latest
+    environment: npm
     permissions:
       contents: write
       id-token: write
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      published-packages: ${{ steps.changesets.outputs['published-packages'] }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -109,6 +114,20 @@ jobs:
       # .npmrc written by setup-node) and, for npm itself, 11.5.1 or later.
       - run: pnpm --version && npm --version
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+      - id: changesets
+        uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
+
+  # Publishes the same versions to the EmDash plugin registry. Only packages
+  # with an emdash-plugin.jsonc go there; the plan step skips the rest.
+  publish-emdash-plugins:
+    needs: publish
+    if: needs.publish.outputs.published == 'true'
+    uses: ./.github/workflows/emdash-release.yml
+    with:
+      published-packages: ${{ needs.publish.outputs['published-packages'] }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
