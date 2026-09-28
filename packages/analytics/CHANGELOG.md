@@ -1,5 +1,11 @@
 # @eisbachcode/emdash-plugin-analytics
 
+## 0.2.2
+
+### Patch Changes
+
+- 4090797: Tested on EmDash 1.0.1, the first stable release; no change was needed.
+
 ## 0.2.1
 
 ### Patch Changes
