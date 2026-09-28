@@ -1,5 +1,15 @@
 # @eisbachcode/emdash-plugin-analytics
 
+## 0.2.1
+
+### Patch Changes
+
+- 0c05c21: Gives the plugin the display name **Analytics**, which registry search results and the Plugins list of a registry install show instead of the slug `analytics`. A plugin registered in `plugins: []` still appears as `analytics` in the Plugins list, because EmDash names it after the plugin ID.
+  
+  Also tested on EmDash 0.40.1 and 0.41.0; neither needed a change.
+- 63a81e0: Tested on EmDash 0.42.0 and the 1.0 release candidate (1.0.1-rc.0); neither needed a change. From EmDash 0.42.0 the four MCP tools also work when the plugin is registered in `plugins: []`; on 0.39 to 0.41 only sandboxed and registry installs have them. The README now shows how to install and register the plugin.
+- 0accf03: Shortens the plugin description to fit the EmDash registry, which refuses a package description longer than 140 characters. It now reads: "Cloudflare Web Analytics on the EmDash dashboard and next to your content: traffic, top pages, referrers, countries and views per entry."
+
 ## 0.2.0
 
 ### Minor Changes
