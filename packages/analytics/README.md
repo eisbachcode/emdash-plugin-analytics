@@ -9,8 +9,7 @@ entry that earned them rather than to a URL string.
 > **Status: early releases.** Cloudflare Web Analytics plus demo data: a
 > dashboard widget, an Analytics page with a setup check, a per-entry page,
 > an Analytics panel in the entry editor and four read-only MCP tools.
-> Tested on EmDash 0.39 to 0.42 and on the 1.0 release candidate
-> (1.0.1-rc.0). See "Not in this version".
+> Tested on EmDash 0.39 to 1.0. See "Not in this version".
 
 The screenshots show demo data on a site made from EmDash's blog template.
 

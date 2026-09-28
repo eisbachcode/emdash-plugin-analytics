@@ -21,14 +21,23 @@
 # (`emdash/plugin-test-runtime` became `emdash/internal/plugin-test-runtime`),
 # so no harness before plugin-test 0.2.6 can start a 1.0 host. A version
 # written as `version:harness` also overrides plugin-test, for example
-# `1.0.1-rc.0:0.2.6-rc.0`.
+# `1.0.1:0.2.6`.
 #
-# Usage: scripts/compat-matrix.sh [version[:harness]...]      (default: 0.39.1 0.40.0)
+# `--no-baseline` skips the baseline row, for CI jobs that each run one
+# version while a separate job runs the suites on their pinned host.
+#
+# Usage: scripts/compat-matrix.sh [--no-baseline] [version[:harness]...]      (default: 0.39.1 0.40.0)
 
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+
+BASELINE=1
+if [ "${1:-}" = "--no-baseline" ]; then
+	BASELINE=0
+	shift
+fi
 
 VERSIONS=("${@:-}")
 [ -z "${VERSIONS[0]:-}" ] && VERSIONS=(0.39.1 0.40.0)
@@ -100,8 +109,10 @@ run_suites() {
 	done
 }
 
-echo "baseline (harness's own pinned host, no overrides)"
-run_suites "baseline"
+if [ "$BASELINE" -eq 1 ]; then
+	echo "baseline (harness's own pinned host, no overrides)"
+	run_suites "baseline"
+fi
 
 for spec in "${VERSIONS[@]}"; do
 	v="${spec%%:*}"
@@ -127,7 +138,8 @@ printf '%-26s %-12s' "package" "baseline"
 for spec in "${VERSIONS[@]}"; do printf '%-12s' "${spec%%:*}"; done
 echo
 for p in "${PKGS[@]}"; do
-	printf '%-26s %-12s' "$p" "$(lookup baseline "$p")"
+	if [ "$BASELINE" -eq 1 ]; then base="$(lookup baseline "$p")"; else base="skipped"; fi
+	printf '%-26s %-12s' "$p" "$base"
 	for spec in "${VERSIONS[@]}"; do printf '%-12s' "$(lookup "${spec%%:*}" "$p")"; done
 	echo
 done
