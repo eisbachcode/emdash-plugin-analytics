@@ -43,9 +43,11 @@ jobs:
         with:
           node-version: 24
 
+      # Keyed on the inputs, not on github.event_name: in a called workflow
+      # that is the caller's event (`push`), never `workflow_call`.
       - name: "Plan Changesets plugin releases"
         id: changesets
-        if: ${{ github.event_name == 'workflow_call' }}
+        if: ${{ inputs.published-packages != '' }}
         shell: bash
         env:
           EMDASH_PUBLISHED_PACKAGES: ${{ inputs.published-packages }}
@@ -55,7 +57,7 @@ jobs:
 
       - name: "Plan manual plugin release"
         id: manual
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ inputs.package != '' }}
         shell: bash
         env:
           EMDASH_RELEASE_SELECTOR: ${{ inputs.package }}
