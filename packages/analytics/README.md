@@ -338,10 +338,11 @@ language, so a German admin reads "1.234", "18.09.2026" and "Deutschland".
 
 Two limits come from EmDash, not from this plugin:
 
-- **Registered in `plugins: []`, the plugin stays English** on the
-  dashboard and its pages. EmDash 0.39 tells a plugin the admin language
-  there only when it runs sandboxed from the registry. The editor panel
-  gets it either way.
+- **Before EmDash 1.0.1, the widget and the pages stay English in a
+  `plugins: []` install**, because EmDash passes such a plugin the admin
+  language there only from 1.0.1 on. Installed from the registry, the
+  plugin gets it on earlier versions too. The editor panel gets it either
+  way.
 - **Labels declared in the manifest stay English everywhere:** the sidebar
   entry, the widget title and the settings form. EmDash renders those
   itself and does not read plugin translations.
