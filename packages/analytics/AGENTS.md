@@ -40,11 +40,11 @@ at the workspace root is enough.
   after any change that adds a `ctx` call.
 - **Block Kit keys are snake_case.** Use the constructors in
   `src/ui/blocks.ts`; the renderer silently ignores camelCase.
-- `routeCtx.ui` (locale, direction) reaches the widget and the pages only
-  when the plugin runs sandboxed. Registered in `plugins: []` it is
-  undefined there, so read `routeCtx.ui?.locale` and fall back to English;
-  never return empty blocks when it is missing. The editor panel gets it in
-  both modes, with `ui.entry`.
+- `routeCtx.ui` (locale, direction) reaches the widget and the pages in
+  both install modes from EmDash 1.0.1; before that, a `plugins: []`
+  install gets it undefined there. Read `routeCtx.ui?.locale` and fall back
+  to English; never return empty blocks when it is missing. The editor panel
+  gets it in both modes on every version, with `ui.entry`.
 - **MCP schemas never reach the runtime.** `emdash-plugin build` strips
   the `mcp` property of `src/plugin.ts` from the bundle and writes the zod
   schemas into the manifest as JSON Schema. `src/tools/declare.ts` is
