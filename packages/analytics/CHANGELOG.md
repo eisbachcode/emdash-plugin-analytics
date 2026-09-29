@@ -1,5 +1,11 @@
 # @eisbachcode/emdash-plugin-analytics
 
+## 0.2.3
+
+### Patch Changes
+
+- b040a97: The README now says that a plugin registered in `plugins: []` follows the admin language on the dashboard and its pages from EmDash 1.0.1; before 1.0.1 it stays English there. The plugin code is unchanged.
+
 ## 0.2.2
 
 ### Patch Changes
