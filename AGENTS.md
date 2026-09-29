@@ -8,11 +8,13 @@ Keep `emdash-plugin.jsonc` aligned with the runtime implementation, declare ever
 
 ## Toolchain
 
-`emdash` is a peer with a floor and no ceiling (`>=0.39.0`, the same as
-`env:emdash` in the manifest); the dev dependency stays below the next
-major until the toolchain is moved on purpose. Built with
-`@emdash-cms/plugin-cli@0.12.0`, `@emdash-cms/plugin-test@0.2.0` and
-`@emdash-cms/blocks@0.39.0`; `scripts/compat-matrix.sh` runs the suite
+`emdash` is a peer with a floor and no ceiling (`>=1.0.1`, the same as
+`env:emdash` in the manifest). Never write the floor as `>=1.0.0` or
+`^1.0.0`: npm carries an accidental, deprecated `emdash@1.0.0` published
+in April 2026, five months before the real 1.0. The dev dependency stays
+below the next major until the toolchain is moved on purpose. Built with
+`@emdash-cms/plugin-cli@0.13.1`, `@emdash-cms/plugin-test@0.2.6` and
+`@emdash-cms/blocks@1.0.1`; `scripts/compat-matrix.sh` runs the suite
 against later EmDash releases. A plain `pnpm install` is enough.
 
 ## Two builds
@@ -42,11 +44,10 @@ against later EmDash releases. A plain `pnpm install` is enough.
   after any change that adds a `ctx` call.
 - **Block Kit keys are snake_case.** Use the constructors in
   `src/ui/blocks.ts`; the renderer silently ignores camelCase.
-- `routeCtx.ui` (locale, direction) reaches the widget and the pages in
-  both install modes from EmDash 1.0.1; before that, a `plugins: []`
-  install gets it undefined there. Read `routeCtx.ui?.locale` and fall back
-  to English; never return empty blocks when it is missing. The editor panel
-  gets it in both modes on every version, with `ui.entry`.
+- `routeCtx.ui` (locale, direction) reaches the widget, the pages and the
+  editor panel in both install modes; the panel also gets `ui.entry`. Still
+  read `routeCtx.ui?.locale` and fall back to English; never return empty
+  blocks when it is missing.
 - **MCP schemas never reach the runtime.** `emdash-plugin build` strips
   the `mcp` property of `src/plugin.ts` from the bundle and writes the zod
   schemas into the manifest as JSON Schema. `src/tools/declare.ts` is
@@ -59,10 +60,6 @@ against later EmDash releases. A plain `pnpm install` is enough.
   does not match, so a loader's result and its declared output have to
   agree key for key. `tests/tools.test.ts` checks each answer against the
   schema the build wrote.
-- **In `plugins: []`, MCP tools need EmDash 0.42.0 or later.** Older
-  in-process loaders read tools from the runtime module, where the build
-  removes them, so a `plugins: []` install on 0.39 to 0.41 lists none.
-  Sandboxed installs have them on every supported version.
 - **Block Kit keeps no state.** Anything a page needs to remember between
   interactions travels in an `action_id`, a button `value` or a table
   cursor (see `src/ui/content.ts`).
@@ -85,7 +82,7 @@ pnpm install
 pnpm typecheck
 pnpm test        # emdash-plugin validate, then vitest
 pnpm build
-./scripts/compat-matrix.sh 0.39.0 0.39.1 0.40.0 0.40.1 0.41.0 0.42.0 1.0.1:0.2.6   # the suite against other EmDash releases
+./scripts/compat-matrix.sh 1.0.1   # the suite against other EmDash releases
 ```
 
 ## Releases

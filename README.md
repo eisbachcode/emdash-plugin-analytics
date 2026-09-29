@@ -9,7 +9,7 @@ entry that earned them rather than to a URL string.
 > **Status: early releases.** Cloudflare Web Analytics plus demo data: a
 > dashboard widget, an Analytics page with a setup check, a per-entry page,
 > an Analytics panel in the entry editor and four read-only MCP tools.
-> Tested on EmDash 0.39 to 1.0. See "Not in this version".
+> Needs EmDash 1.0.1 or later. See "Not in this version".
 
 The screenshots show demo data on a site made from EmDash's blog template.
 
@@ -136,17 +136,11 @@ To use them:
 After an update that changes a tool, EmDash stops serving the tools until
 they are approved again, but the switch stays on. Turn it off and on.
 
-**Registered in `plugins: []`, the tools need EmDash 0.42 or later.** On
-0.39 to 0.41, EmDash's in-process loader looks for tool declarations only in
-the plugin's runtime module, where the plugin build leaves them out, so such
-a site gets none. Under `sandboxed: []` or installed from the registry, the
-tools work on every EmDash version this plugin supports.
-
 ## What you need
 
 | | |
 |---|---|
-| EmDash | `>=0.39.0` — the plugin uses the content-join APIs (`ctx.schema`, `getPublicUrl`, `ctx.settings`) added in that release |
+| EmDash | `>=1.0.1`, the first stable release. Sites on 0.x keep the plugin version they have; 0.2.x supports EmDash 0.39 and later |
 | A Cloudflare account | with Web Analytics enabled for the site |
 | An API token | permission **Account → Account Analytics → Read** |
 | `EMDASH_ENCRYPTION_KEY` | set on the site, or the API token cannot be stored (`npx emdash secrets generate`) |
@@ -336,16 +330,10 @@ English and German, following the administrator's admin language. Any other admi
 language gets English. Number, date and country names follow the same
 language, so a German admin reads "1.234", "18.09.2026" and "Deutschland".
 
-Two limits come from EmDash, not from this plugin:
-
-- **Before EmDash 1.0.1, the widget and the pages stay English in a
-  `plugins: []` install**, because EmDash passes such a plugin the admin
-  language there only from 1.0.1 on. Installed from the registry, the
-  plugin gets it on earlier versions too. The editor panel gets it either
-  way.
-- **Labels declared in the manifest stay English everywhere:** the sidebar
-  entry, the widget title and the settings form. EmDash renders those
-  itself and does not read plugin translations.
+One limit comes from EmDash, not from this plugin: **labels declared in
+the manifest stay English everywhere**, that is the sidebar entry, the
+widget title and the settings form. EmDash renders those itself and does
+not read plugin translations.
 
 ## Privacy and data residency
 
