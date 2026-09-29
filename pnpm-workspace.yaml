@@ -1,6 +1,3 @@
-packages:
-  - "packages/*"
-
 # esbuild needs its postinstall to link the platform binary (vitest depends
 # on it); workerd needs its own, because `@emdash-cms/plugin-test` runs the
 # plugin inside the real sandbox rather than a mock.
