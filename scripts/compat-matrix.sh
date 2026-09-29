@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Run every harness-backed plugin suite against a list of EmDash versions and
-# print which combinations pass.
+# Run the plugin's suite against a list of EmDash versions and print which
+# combinations pass.
 #
 # Why this exists: `@emdash-cms/plugin-test` pins `emdash` exactly (0.2.0 pins
 # 0.39.0), so out of the box a plugin is only ever tested against the one host
@@ -12,10 +12,6 @@
 # from importing a symbol that exists only in its pinned host, and the failure
 # would look like a plugin bug. The baseline row (no overrides) is therefore not
 # optional: it is what tells a harness breakage apart from a plugin regression.
-#
-# Only packages with a `vitest.config.ts` are run -- those are the ones using
-# the workerd harness. `shared` uses plain vitest with no host, and a `link:`ed
-# package has no npm versions to override against.
 #
 # The reverse happened with EmDash 1.0: it moved the module the harness loads
 # (`emdash/plugin-test-runtime` became `emdash/internal/plugin-test-runtime`),
@@ -47,11 +43,7 @@ if [ -n "$(git status --porcelain pnpm-workspace.yaml pnpm-lock.yaml)" ]; then
 	exit 1
 fi
 
-PKGS=()
-for d in packages/*/; do
-	[ -f "${d}vitest.config.ts" ] && PKGS+=("$(basename "${d%/}")")
-done
-[ ${#PKGS[@]} -eq 0 ] && { echo "no harness-backed packages found" >&2; exit 1; }
+PKGS=(analytics)
 
 restore() {
 	git checkout -- pnpm-workspace.yaml pnpm-lock.yaml 2>/dev/null || true
@@ -83,7 +75,7 @@ run_suites() {
 		return
 	fi
 	for p in "${PKGS[@]}"; do
-		if out=$(cd "packages/$p" && pnpm vitest run 2>&1); then
+		if out=$(pnpm vitest run 2>&1); then
 			# `|| true` matters: with `set -eo pipefail` a grep that matches
 			# nothing would kill the script and hide the reason.
 			n=$(printf '%s' "$out" | sed 's/\x1b\[[0-9;]*m//g' | grep -oE 'Tests +[0-9]+ passed' | grep -oE '[0-9]+' | head -1 || true)

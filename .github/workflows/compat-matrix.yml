@@ -1,12 +1,12 @@
-# Runs every plugin suite against every EmDash version we claim to support.
+# Runs the plugin's suite against every EmDash version we claim to support.
 #
 # Deliberately NOT named emdash-release.yml: `emdash-plugin release setup`
 # generates that file, and this must not collide with it.
 #
 # Three jobs, because they answer different questions:
 #
-#   tests     gating. Typecheck, manifest validation and every suite on the
-#             EmDash version each package's harness pins. This is the
+#   tests     gating. Typecheck, manifest validation and the suite on the
+#             EmDash version the harness pins. This is the
 #             baseline that tells a harness breakage from a plugin regression.
 #   declared  gating, one job per version so they run in parallel. The
 #             versions inside our published range. A failure here is our
@@ -14,7 +14,7 @@
 #   latest    informational, never blocks. Runs against whatever EmDash is
 #             current on npm. EmDash ships a minor every 6-8 days and any minor
 #             may carry breaking changes, so this is the signal to widen the
-#             tested-up-to tables in the package READMEs -- or not to.
+#             tested-up-to line in the README -- or not to.
 name: compat matrix
 
 on:
@@ -49,9 +49,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      # One package at a time, like the compat script: suites running in
-      # parallel on one runner are untested.
-      - run: pnpm --filter "./packages/*" --workspace-concurrency=1 run test
+      - run: pnpm test
 
   declared:
     name: EmDash ${{ matrix.emdash }}
