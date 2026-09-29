@@ -3,8 +3,8 @@
 # Run the plugin's suite against a list of EmDash versions and print which
 # combinations pass.
 #
-# Why this exists: `@emdash-cms/plugin-test` pins `emdash` exactly (0.2.0 pins
-# 0.39.0), so out of the box a plugin is only ever tested against the one host
+# Why this exists: `@emdash-cms/plugin-test` pins `emdash` exactly (0.2.6 pins
+# 1.0.1), so out of the box a plugin is only ever tested against the one host
 # version the harness chose. pnpm `overrides` rewire the harness's own pinned
 # dependency, which is how a range becomes testable at all.
 #
@@ -22,7 +22,7 @@
 # `--no-baseline` skips the baseline row, for CI jobs that each run one
 # version while a separate job runs the suites on their pinned host.
 #
-# Usage: scripts/compat-matrix.sh [--no-baseline] [version[:harness]...]      (default: 0.39.1 0.40.0)
+# Usage: scripts/compat-matrix.sh [--no-baseline] [version[:harness]...]      (default: 1.0.1)
 
 set -euo pipefail
 
@@ -36,7 +36,7 @@ if [ "${1:-}" = "--no-baseline" ]; then
 fi
 
 VERSIONS=("${@:-}")
-[ -z "${VERSIONS[0]:-}" ] && VERSIONS=(0.39.1 0.40.0)
+[ -z "${VERSIONS[0]:-}" ] && VERSIONS=(1.0.1)
 
 if [ -n "$(git status --porcelain pnpm-workspace.yaml pnpm-lock.yaml)" ]; then
 	echo "refusing to run: pnpm-workspace.yaml or pnpm-lock.yaml already modified" >&2

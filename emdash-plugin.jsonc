@@ -16,7 +16,7 @@
 	// break. The manifest has no advisory "tested up to" field to express
 	// caution without blocking, so the tested range belongs in the README.
 	"release": {
-		"requires": { "env:emdash": ">=0.39.0" },
+		"requires": { "env:emdash": ">=1.0.1" },
 		"artifacts": {
 			"screenshots": [
 				{ "file": "images/analytics-page.png", "lang": "en" },
