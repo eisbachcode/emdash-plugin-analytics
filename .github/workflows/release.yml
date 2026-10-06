@@ -13,11 +13,17 @@
 # from the lockfile's scripts and builds nothing: the pack job builds without
 # any credential and hands over tarballs. The publish job runs in the `npm`
 # environment, which the trusted publisher on npmjs.com requires.
+#
+# Run by hand on main, it skips npm and only publishes the version in
+# package.json to the EmDash plugin registry, to retry a failed registry
+# release. It has to run from this file: the registry's workflow connection
+# names release.yml, and a run of emdash-release.yml would replace it.
 name: release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions: {}
 
@@ -26,6 +32,7 @@ concurrency:
 
 jobs:
   select-mode:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -127,6 +134,30 @@ jobs:
     uses: ./.github/workflows/emdash-release.yml
     with:
       published-packages: ${{ needs.publish.outputs['published-packages'] }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+  registry-retry-version:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      published-packages: ${{ steps.read.outputs.published-packages }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: read
+        run: echo "published-packages=$(jq -c '[{name, version}]' package.json)" >> "${GITHUB_OUTPUT}"
+
+  registry-retry:
+    needs: registry-retry-version
+    uses: ./.github/workflows/emdash-release.yml
+    with:
+      published-packages: ${{ needs.registry-retry-version.outputs.published-packages }}
     permissions:
       contents: read
       id-token: write
