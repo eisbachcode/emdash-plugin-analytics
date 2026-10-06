@@ -115,5 +115,13 @@ holds `id-token`, and it installs and builds nothing. The npm publish job
 runs in the `npm` environment, which the npm trusted publisher requires.
 Keep both.
 
+A failed registry release cannot be re-run: the release service keys the
+uploaded artifacts by run, and a rerun's fresh attestation conflicts with the
+first attempt's. Start `release.yml` by hand on main instead; it skips npm
+and publishes the version in `package.json` to the registry. Never start
+`emdash-release.yml` by hand: the registry keeps one workflow connection per
+package, and approving one for `emdash-release.yml` replaces the one for
+`release.yml`.
+
 The repository installs with pnpm 11; `allowBuilds` in `pnpm-workspace.yaml`
 lets esbuild and workerd run their install scripts, which the test host needs.
