@@ -192,6 +192,11 @@ To run it sandboxed, list it under `sandboxed: [analytics]` instead. That
 needs a sandbox runner, which on Cloudflare means the Workers Paid plan; see
 EmDash's [plugin sandbox guide](https://docs.emdashcms.com/deployment/plugin-sandbox/).
 
+On Cloudflare, plan on Workers Paid either way. Installed under `plugins`,
+the pages and the widget work on Workers Free, but the scheduled sync runs
+under Free's 10 ms CPU limit per Cron Trigger and will most likely be cut
+off. This has not been tested on Free.
+
 ## Settings
 
 Fill these in under Plugins → Analytics → Settings.
