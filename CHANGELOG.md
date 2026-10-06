@@ -1,5 +1,11 @@
 # @eisbachcode/emdash-plugin-analytics
 
+## 0.3.1
+
+### Patch Changes
+
+- a285058: The README now says to plan on Workers Paid on Cloudflare for an in-process install too: the pages work on Workers Free, but the scheduled sync will most likely exceed Free's 10 ms CPU limit per Cron Trigger. No code changes from 0.3.0.
+
 ## 0.3.0
 
 ### Minor Changes
