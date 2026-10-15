@@ -63,9 +63,11 @@ const CRON_TIMEOUT_MS = 30_000;
 const plugin: SandboxedPlugin = {
 	hooks: {
 		/**
-		 * Fires only when an administrator clicks Enable. A site that
-		 * registers the plugin through `plugins: []` never gets one, which is
-		 * why this is not the only place scheduling happens.
+		 * Fires when an administrator clicks Enable, and from EmDash 1.2.0 also
+		 * on the first start of a site that registers the plugin through
+		 * `plugins: []`. Before 1.2.0 such a site never gets one, which is
+		 * why this is not the only place scheduling happens. It must not
+		 * throw: from 1.2.0 a throwing activate hook disables the plugin.
 		 */
 		"plugin:activate": async (_event, ctx) => {
 			await scheduleFromSettings(ctx);
@@ -101,7 +103,7 @@ const plugin: SandboxedPlugin = {
 			errorPolicy: "continue",
 			handler: async (event, ctx) => {
 				// Also the reliable scheduling entry point for `plugins: []`
-				// installs, where `plugin:activate` never fires.
+				// installs before EmDash 1.2.0, where `plugin:activate` never fires.
 				await scheduleFromSettings(ctx);
 				await index(ctx, event, "published");
 			},

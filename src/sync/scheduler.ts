@@ -162,12 +162,12 @@ export interface SyncOutcome {
  * Schedule both tasks, idempotently.
  *
  * Called from `plugin:activate`, from the content hooks and from the
- * widget's first `page_load` — because `plugin:activate` is dispatched
- * only by the admin Enable endpoint, and a plugin registered through
- * `plugins: []` in the site config never gets one. That is the npm
- * channel, which is the channel most installs use. `CronAccess.schedule`
- * upserts on (plugin, task), so calling it repeatedly is free of
- * consequence.
+ * widget's first `page_load` — because before EmDash 1.2.0
+ * `plugin:activate` is dispatched only by the admin Enable endpoint, and a
+ * plugin registered through `plugins: []` in the site config never gets
+ * one. That is the npm channel, which is the channel most installs use.
+ * `CronAccess.schedule` upserts on (plugin, task), so calling it repeatedly
+ * is free of consequence.
  */
 export async function ensureScheduled(ctx: PluginContext, interval: string): Promise<void> {
 	if (!ctx.cron) return;
