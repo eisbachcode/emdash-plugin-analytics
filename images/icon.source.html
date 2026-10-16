@@ -4,7 +4,7 @@
   plugin search results and on the plugin page. The registry wants exactly
   256x256 and at most 128 KB. It sits at about 50 px among flat, solid
   tiles with one thick glyph, so this is one too: EmDash's gradient as the
-  ground and a white trend line. No text, so no webfont, and the registry
+  ground and a white trend curve. No text, so no webfont, and the registry
   rounds the corners itself.
 
   Render from this folder:
@@ -35,9 +35,8 @@
       </linearGradient>
     </defs>
     <rect width="256" height="256" fill="url(#emdash)" />
-    <path d="M 44,186 L 96,128 L 138,158 L 210,76" fill="none" stroke="#fff"
-      stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
-    <circle cx="210" cy="76" r="22" fill="#fff" />
+    <path d="M 48,184 C 84,184 92,120 128,128 C 164,136 168,72 208,72" fill="none" stroke="#fff"
+      stroke-width="24" stroke-linecap="round" />
   </svg>
 </body>
 </html>
