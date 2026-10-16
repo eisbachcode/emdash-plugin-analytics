@@ -3,15 +3,10 @@
   Source of icon.png (256x256, rendered at 1x): the registry icon, shown in
   plugin search results and on the plugin page. The registry wants exactly
   256x256 and at most 128 KB. It sits at about 50 px among flat tiles with
-  one thick glyph, so this is one too, in Eisbachcode's colours: ink
-  (#06070A, the stroke of the Eisbachcode mark) on cream. No blue, as in
-  every Eisbachcode mark. No text, so no webfont, and the registry rounds
-  the corners itself.
-
-  The points float above the bars and the data only rises: with the bars
-  running into the points, or a dip at the middle point, it reads as "M".
-
-  To switch to the dark tile, swap the two colour values below.
+  one thick glyph, so this is one too: a rising line in EmDash's gradient
+  (as in banner.source.html) on Eisbachcode ink (#06070A). Chosen because
+  it read best as a tiny icon on a phone. No text, so no webfont, and the
+  registry rounds the corners itself.
 
   Render from this folder:
 
@@ -24,7 +19,6 @@
 <head>
 <meta charset="utf-8" />
 <style>
-  :root { --ground: #FFFEEA; --ink: #06070A; }
   * { margin: 0; padding: 0; }
   html, body { width: 256px; height: 256px; overflow: hidden; }
   svg { display: block; width: 256px; height: 256px; }
@@ -32,20 +26,18 @@
 </head>
 <body>
   <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <rect width="256" height="256" fill="var(--ground)" />
-    <g stroke="var(--ink)" stroke-linecap="round" stroke-linejoin="round" fill="none">
-      <g stroke-width="20">
-        <line x1="64" y1="204" x2="64" y2="180" />
-        <line x1="128" y1="204" x2="128" y2="152" />
-        <line x1="192" y1="204" x2="192" y2="96" />
-      </g>
-      <path d="M 64,150 L 128,122 L 192,66" stroke-width="12" />
-    </g>
-    <g fill="var(--ink)">
-      <circle cx="64" cy="150" r="16" />
-      <circle cx="128" cy="122" r="16" />
-      <circle cx="192" cy="66" r="16" />
-    </g>
+    <defs>
+      <linearGradient id="emdash" x1="0" y1="256" x2="256" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#281A81" />
+        <stop offset="0.3" stop-color="#911475" />
+        <stop offset="0.55" stop-color="#CE2F55" />
+        <stop offset="0.8" stop-color="#FF6633" />
+        <stop offset="1" stop-color="#FBAD41" />
+      </linearGradient>
+    </defs>
+    <rect width="256" height="256" fill="#06070A" />
+    <path d="M 52,178 L 100,128 L 140,156 L 204,82" fill="none" stroke="url(#emdash)"
+      stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
   </svg>
 </body>
 </html>
