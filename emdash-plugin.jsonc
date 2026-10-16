@@ -18,6 +18,10 @@
 	"release": {
 		"requires": { "env:emdash": ">=1.0.1" },
 		"artifacts": {
+			// Uploaded into each release record, not the profile, so it only
+			// shows from the next published version on. 256x256, rendered
+			// from icon.source.html.
+			"icon": { "file": "images/icon.png" },
 			"screenshots": [
 				{ "file": "images/analytics-page.png", "lang": "en" },
 				{ "file": "images/per-entry.png", "lang": "en" },

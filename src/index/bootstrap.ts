@@ -10,8 +10,8 @@
  * Two things keep this cheap:
  *
  * - **It rides on the sync tick** rather than on `plugin:activate`, which
- *   is dispatched only by the admin Enable endpoint and never fires for a
- *   site that registers the plugin through `plugins: []`.
+ *   fires once per activation (and, before EmDash 1.2.0, never for a site
+ *   that registers the plugin through `plugins: []`).
  * - **It walks a few entries per tick.** `getPublicUrl()` is one bridge
  *   call per entry and a sandboxed invocation gets ten in total, so the
  *   page size is deliberately tiny and the pass spreads over many ticks.
