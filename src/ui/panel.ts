@@ -19,7 +19,7 @@ import { isPublished, type EntryRow } from "../store/rows.js";
 import type { SyncState } from "../sync/scheduler.js";
 import { actions, context, empty, link, stats, table, type AnalyticsBlock } from "./blocks.js";
 import { CONTENT_PATH } from "./content.js";
-import { formatCount } from "./format.js";
+import { formatCount, readablePath } from "./format.js";
 import { statusLine } from "./status.js";
 
 export const PANEL_ID = "views";
@@ -88,14 +88,19 @@ export function renderPanel(input: PanelInput): AnalyticsBlock[] {
 				],
 				rows: [...members]
 					.sort((a, b) => b.views30 - a.views30 || a.locale.localeCompare(b.locale))
-					.map((row) => ({ language: row.locale, path: row.path, views7: row.views7, views30: row.views30 })),
+					.map((row) => ({
+						language: row.locale,
+						path: readablePath(row.path),
+						views7: row.views7,
+						views30: row.views30,
+					})),
 			}),
 		);
 	}
 
 	const notes = [
 		...(translated ? [t(lang, "panelAllLanguages", { count: formatCount(sum(members), lang) })] : []),
-		current.status === "published" ? t(lang, "panelCountedAt", { path: current.path }) : t(lang, "panelNotPublished"),
+		current.status === "published" ? t(lang, "panelCountedAt", { path: readablePath(current.path) }) : t(lang, "panelNotPublished"),
 		statusLine(state, now, lang, {}),
 	].filter(Boolean);
 	out.push(context(notes.join(" · ")));

@@ -20,10 +20,10 @@
  *   does not know the factor cannot tell an exact number from an estimate.
  *
  * Field names are not guesses. Every identifier below was read out of the
- * live schema by introspection on 2026-09-20; note that Cloudflare's
- * GraphQL types are lower-case (`viewer`, `account`), so introspecting
- * `"Account"` returns null and sends you looking for a problem that is not
- * there.
+ * live schema by introspection on 2026-09-20 (`deviceType` on 2026-11-10);
+ * note that Cloudflare's GraphQL types are lower-case (`viewer`,
+ * `account`), so introspecting `"Account"` returns null and sends you
+ * looking for a problem that is not there.
  */
 
 import { failure, type Problem } from "../i18n.js";
@@ -55,6 +55,7 @@ const MAX_PAGE_SIZE = 10_000;
 const TOP_PATHS_LIMIT = 20;
 const REFERRERS_LIMIT = 20;
 const COUNTRIES_LIMIT = 50;
+const DEVICES_LIMIT = 10;
 
 /** The admin's pages as a `LIKE` pattern; see `isInternalPath`. */
 const INTERNAL_PATHS = "/_emdash/%";
@@ -70,7 +71,7 @@ export const CLOUDFLARE_CAPABILITIES: ProviderCapabilities = {
 	// No uniques. Cloudflare Web Analytics does not measure them, and
 	// inventing one from visits would be a lie with a number attached.
 	metrics: ["pageviews", "visits"],
-	breakdowns: ["referrers", "countries"],
+	breakdowns: ["referrers", "countries", "devices"],
 	exactWindowDays: UNSAMPLED_WINDOW_DAYS,
 	reportsSampling: true,
 };
@@ -246,6 +247,9 @@ query EmDashAnalyticsOverview(${decls}) {
 		geo: ${RUM_DATASET}(limit: ${COUNTRIES_LIMIT}, filter: ${filter}, orderBy: [count_DESC]) {
 			count sum { visits } dimensions { countryName }
 		}
+		devices: ${RUM_DATASET}(limit: ${DEVICES_LIMIT}, filter: ${filter}, orderBy: [count_DESC]) {
+			count sum { visits } dimensions { deviceType }
+		}
 	} }
 }`.trim();
 
@@ -366,6 +370,9 @@ query EmDashAnalyticsPaths(${decls}) {
 				headers: {
 					Authorization: `Bearer ${this.#config.apiToken}`,
 					"Content-Type": "application/json",
+					// Without it the query budget is shared by every token of the
+					// user who made this one, so another tool can exhaust it.
+					"X-Rate-Limit-Type": "account-based",
 				},
 				body: JSON.stringify({ query, variables }),
 			});
@@ -439,6 +446,7 @@ query EmDashAnalyticsPaths(${decls}) {
 				topPaths: foldByKey(topPaths),
 				referrers: labelled(account.refs, "refererHost", DIRECT_REFERRER),
 				countries: labelled(account.geo, "countryName", ""),
+				devices: labelled(account.devices, "deviceType", ""),
 				truncated:
 					asArray(account.series).length >= seriesLimit ||
 					asArray(account.pages).length >= TOP_PATHS_LIMIT ||
@@ -479,6 +487,8 @@ function firstGraphqlError(payload: unknown): { ok: false; error: string; proble
 	const first = errors[0];
 	const message = isRecord(first) && typeof first.message === "string" ? first.message : "unknown error";
 	if (message.includes("not authorized for that account")) return failure("cfZoneToken");
+	// With account-based limits an exhausted budget is a GraphQL error, not a 429.
+	if (isRecord(first) && isRecord(first.extensions) && first.extensions.code === "budget") return failure("cfRateLimited");
 	return { ok: false, error: `GraphQL: ${message}` };
 }
 

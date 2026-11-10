@@ -28,10 +28,12 @@ import type { PluginContext } from "emdash/plugin";
 import { langOf, t, type Lang } from "../i18n.js";
 import { dailyStore, entriesStore, oldestDay, BIND_LIMIT, type Typed } from "../store/access.js";
 import { isPublished, type EntryRow } from "../store/rows.js";
+import { previousStart, previousViews7 } from "../store/views.js";
 import { indexOutdated, type SyncState } from "../sync/scheduler.js";
 import { addDays, daysBetween, utcDay, type Day } from "../sync/window.js";
 import { actions, button, context, empty, link, table, type AnalyticsBlock } from "./blocks.js";
-import { formatCount, formatDay } from "./format.js";
+import { changeText, formatCount, formatDay, readablePath } from "./format.js";
+import { LINK_COLUMNS, linkCells } from "./links.js";
 import { PAGE_PATH } from "./page.js";
 import { statusLine } from "./status.js";
 
@@ -42,7 +44,7 @@ export const REBUILD_ACTION = "analytics:content:rebuild";
 
 /**
  * Rows per table page. A sandboxed response is capped at 2 000 nodes and
- * 256 KiB, and a row here has up to eight cells.
+ * 256 KiB, and a row here has up to eleven cells, two of them links.
  */
 export const PAGE_ROWS = 50;
 
@@ -71,9 +73,13 @@ export const DEFAULT_VIEW: ContentView = { collection: null, sort: "views30", di
 export interface ContentRow {
 	title: string;
 	collection: string;
+	entryId: string;
+	status: EntryRow["status"];
 	locale: string;
 	path: string;
 	views7: number;
+	/** Page views over the seven days before `views7`; null while they are not known. */
+	previous7: number | null;
 	views30: number;
 	/** 30-day views of every published translation, this entry included. */
 	allLanguages?: number;
@@ -97,6 +103,8 @@ export interface ContentInput {
 	partial?: number;
 	/** Where an index walk stands, while one runs. */
 	indexing?: { at: number; total: number; rebuilding: boolean };
+	/** The site's address, for the links to its pages. */
+	siteUrl?: string;
 	now: Date;
 	locale?: string;
 }
@@ -152,11 +160,16 @@ export async function loadContent(
 	const view = { ...requested, collection };
 
 	const historySince = await oldestDay(dailyStore(ctx));
+	const today = utcDay(now);
+	// The comparison week has to be in the store whole, or every entry would
+	// seem to have grown out of the days before the plugin ran.
+	const compare = historySince && daysBetween(historySince, previousStart(today)) >= 0 ? today : undefined;
 	const base = {
 		state,
 		collections: routable,
 		...(historySince && { historySince }),
 		indexing: indexingOf(state, routable.map((c) => c.slug)),
+		...(ctx.site.url && { siteUrl: ctx.site.url }),
 		now,
 		locale,
 	};
@@ -184,7 +197,7 @@ export async function loadContent(
 			cursor = page.cursor;
 		}
 
-		const groups = combine(published(read), view, siteLocale, locale);
+		const groups = combine(published(read), view, siteLocale, locale, compare);
 		const rows = groups.slice(view.offset, view.offset + PAGE_ROWS);
 		const end = view.offset + rows.length;
 		return {
@@ -207,7 +220,7 @@ export async function loadContent(
 	const members = await readMembers(entries, [...new Set(shown.map((row) => row.translationGroup))]);
 
 	const rows = shown.map((row) => ({
-		...rowOf(row),
+		...rowOf(row, compare),
 		allLanguages: (members.get(row.translationGroup) ?? [row]).reduce((sum, m) => sum + m.views30, 0),
 	}));
 	// More than one language in sight, not "a locale other than the site's":
@@ -322,20 +335,24 @@ function entryTable(input: ContentInput, lang: Lang) {
 				? [{ key: "byLanguage", label: t(lang, "colByLanguage", { days: windowOf(view.sort) }), format: "text" as const }]
 				: []),
 			{ key: "views7", label: t(lang, "col7Days"), format: "number", sortable: true },
+			{ key: "change", label: t(lang, "colChange7"), format: "text" },
 			{ key: "views30", label: t(lang, "col30Days"), format: "number", sortable: true },
 			...(showLanguage ? [{ key: "allLanguages", label: t(lang, "colAllLanguages"), format: "number" as const }] : []),
 			{ key: "published", label: t(lang, "colPublished"), format: "text" },
+			...LINK_COLUMNS,
 		],
 		rows: input.rows.map((row) => ({
 			entry: row.title || "—",
 			language: row.locale,
 			collection: labels.get(row.collection) ?? row.collection,
-			path: row.path,
+			path: readablePath(row.path),
 			byLanguage: row.byLanguage ?? "",
 			views7: row.views7,
+			change: changeText(row.views7, row.previous7, lang),
 			views30: row.views30,
 			allLanguages: row.allLanguages ?? row.views30,
 			published: row.publishedAt ? formatDay(row.publishedAt.slice(0, 10), lang) : "",
+			...linkCells(row.path, row, input.siteUrl, lang),
 		})),
 		emptyText: t(lang, "noEntriesHere"),
 	});
@@ -346,8 +363,17 @@ function entryTable(input: ContentInput, lang: Lang) {
  * view's window. The row is named after the group's original, the entry
  * the others were translated from: its id is the group id. Without it in
  * the rows read, the site-locale version, then the most viewed.
+ *
+ * `compare` is today when the store holds the comparison week. A group's
+ * earlier week is known only when every member's is.
  */
-export function combine(rows: EntryRow[], view: ContentView, siteLocale: string, readerLocale?: string): ContentRow[] {
+export function combine(
+	rows: EntryRow[],
+	view: ContentView,
+	siteLocale: string,
+	readerLocale?: string,
+	compare?: Day,
+): ContentRow[] {
 	const groups = new Map<string, EntryRow[]>();
 	for (const row of rows) groups.set(row.translationGroup, [...(groups.get(row.translationGroup) ?? []), row]);
 
@@ -358,9 +384,11 @@ export function combine(rows: EntryRow[], view: ContentView, siteLocale: string,
 			members.find((m) => m.entryId === m.translationGroup) ??
 			members.find((m) => m.locale === siteLocale) ??
 			ranked[0]!;
+		const previous = members.map((m) => (compare ? previousViews7(m, compare) : null));
 		out.push({
 			...rowOf(lead),
 			views7: sum(members, "views7"),
+			previous7: previous.includes(null) ? null : previous.reduce<number>((total, n) => total + (n ?? 0), 0),
 			views30: sum(members, "views30"),
 			byLanguage: ranked.map((m) => `${m.locale} ${formatCount(m[view.sort], readerLocale)}`).join(" · "),
 		});
@@ -370,13 +398,16 @@ export function combine(rows: EntryRow[], view: ContentView, siteLocale: string,
 	return out.sort((a, b) => sign * (a[view.sort] - b[view.sort]) || a.path.localeCompare(b.path));
 }
 
-function rowOf(row: EntryRow): ContentRow {
+function rowOf(row: EntryRow, compare?: Day): ContentRow {
 	return {
 		title: row.title,
 		collection: row.collection,
+		entryId: row.entryId,
+		status: row.status,
 		locale: row.locale,
 		path: row.path,
 		views7: row.views7,
+		previous7: compare ? previousViews7(row, compare) : null,
 		views30: row.views30,
 		...(row.publishedAt && { publishedAt: row.publishedAt }),
 	};
@@ -409,9 +440,15 @@ async function readMembers(entries: Typed<EntryRow>, groups: string[]): Promise<
 
 function historyNote(input: ContentInput, lang: Lang): string[] {
 	if (!input.historySince) return [];
-	const thirtyStart = addDays(utcDay(input.now), -29);
-	if (daysBetween(thirtyStart, input.historySince) <= 0) return [];
-	return [t(lang, "historyThirty", { date: formatDay(input.historySince, lang) })];
+	const today = utcDay(input.now);
+	const notes: string[] = [];
+	if (daysBetween(addDays(today, -29), input.historySince) > 0) {
+		notes.push(t(lang, "historyThirty", { date: formatDay(input.historySince, lang) }));
+	}
+	if (daysBetween(previousStart(today), input.historySince) > 0) {
+		notes.push(t(lang, "historyChange", { date: formatDay(addDays(input.historySince, 13), lang) }));
+	}
+	return notes;
 }
 
 /** Where a running index walk stands, or undefined when none runs. */

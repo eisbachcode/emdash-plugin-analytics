@@ -132,10 +132,23 @@ describe("the widget through the sandbox", () => {
 		expect(validateBlocks(response.blocks).valid).toBe(true);
 	});
 
-	it("explains that the first sync has not run instead of showing zeroes", async () => {
+	it("names the missing credential instead of showing zeroes, and links to the settings", async () => {
 		host = await newHost();
 		const response = await host.admin.loadWidget("traffic");
-		expect(JSON.stringify(response.blocks)).toMatch(/first sync has not run/i);
+		const text = JSON.stringify(response.blocks);
+		expect(text).toMatch(/not configured yet/i);
+		expect(text).toMatch(/Account Analytics/);
+		expect(text).toContain('"kind":"plugin-settings"');
+	});
+
+	it("shows numbers before the first sync has run, read live", async () => {
+		host = await newHost();
+		await host.fixtures.plugin.setting("provider", "demo");
+		const response = await host.admin.loadWidget("traffic");
+		const text = JSON.stringify(response.blocks);
+		expect(response.blocks.some((block) => block.type === "stats")).toBe(true);
+		expect(text).toMatch(/Read live/);
+		expect(text).toMatch(/Demo data/);
 	});
 
 	it("renders for an editor, not only for an admin", async () => {
@@ -171,6 +184,8 @@ describe("the refresh button", () => {
 		// invocation's ten bridge calls, so the button schedules the tick.
 		host = await newHost();
 		await host.fixtures.plugin.setting("provider", "demo");
+		// A store that synced a moment ago: Refresh has no reason to read live.
+		await host.fixtures.plugin.kv("state", { phase: "overview", provider: "demo", lastSync: new Date().toISOString() });
 		const today = new Date().toISOString().slice(0, 10);
 
 		const response = await host.admin.act("widget:traffic", "analytics:refresh");

@@ -89,7 +89,8 @@ export interface SyncState {
 	topPaths?: Array<{ path: string; pageviews: number; visits: number }>;
 	referrers?: Array<{ label: string; visits: number }>;
 	countries?: Array<{ label: string; visits: number }>;
-	/** First day of the window the referrer, country and top-path snapshot covers. */
+	devices?: Array<{ label: string; visits: number }>;
+	/** First day of the window the referrer, country, device and top-path snapshot covers. */
 	snapshotSince?: Day;
 	/** True when the last overview was served from Cloudflare's sample. */
 	estimated?: boolean;
@@ -128,7 +129,7 @@ export interface SyncState {
 	wipeCursor?: string;
 }
 
-/** Referrer and country rows kept from each overview, for the analytics page. */
+/** Referrer, country and device rows kept from each overview, for the analytics page. */
 const SNAPSHOT_ROWS = 10;
 
 /**
@@ -371,6 +372,7 @@ async function runOverviewPhase(
 		})),
 		referrers: res.value.referrers.slice(0, SNAPSHOT_ROWS).map((r) => ({ label: r.label, visits: r.visits })),
 		countries: res.value.countries.slice(0, SNAPSHOT_ROWS).map((c) => ({ label: c.label, visits: c.visits })),
+		devices: res.value.devices.slice(0, SNAPSHOT_ROWS).map((d) => ({ label: d.label, visits: d.visits })),
 		snapshotSince: range.since,
 		estimated: res.value.totals.sampleInterval > 1,
 	});
@@ -699,11 +701,12 @@ async function runWipe(ctx: PluginContext, state: SyncState, target: ProviderId,
 						item.data.views7 !== 0 ||
 						item.data.views30 !== 0 ||
 						Boolean(item.data.recentViews) ||
-						Boolean(item.data.olderViews),
+						Boolean(item.data.olderViews) ||
+						Boolean(item.data.olderPrev),
 				)
 				.map((item) => ({
 					id: item.id,
-					data: { ...item.data, views7: 0, views30: 0, recentViews: 0, olderViews: 0 },
+					data: { ...item.data, views7: 0, views30: 0, recentViews: 0, olderViews: 0, olderPrev: 0 },
 				}));
 			if (reset.length > 0) {
 				await entries.putMany(reset);

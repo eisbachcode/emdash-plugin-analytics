@@ -7,6 +7,9 @@
  * are never rewritten, because the paths tick only fetches the last eight
  * days, so the sums hold for the rest of the UTC day.
  *
+ * The same walk sums the window's newest six days on the side, which is
+ * what the 7-day comparison is made of (`previousViews7`).
+ *
  * The walk is sized to the budget it is given and resumes from a stored
  * cursor. A path whose rows straddle two pages is carried to the next
  * page, or to the next tick, before its sum is written, so a sum is never
@@ -23,7 +26,7 @@ import type { PluginContext } from "emdash/plugin";
 
 import { dailyStore, entriesStore, BIND_LIMIT, ID_BATCH } from "../store/access.js";
 import type { EntryRow } from "../store/rows.js";
-import { foldByPath, olderWindow, withOlder } from "../store/views.js";
+import { foldByPath, olderWindow, previousStart, withOlder, type OlderCarry, type OlderSums } from "../store/views.js";
 import type { Day } from "./window.js";
 
 /** Where the pass for one UTC day stands. */
@@ -31,7 +34,7 @@ export interface OlderPass {
 	day: Day;
 	complete: boolean;
 	cursor?: string;
-	carry?: { path: string; views: number };
+	carry?: OlderCarry;
 }
 
 export function olderDue(pass: OlderPass | undefined, today: Day): boolean {
@@ -59,11 +62,15 @@ export async function runOlderStep(
 	if (!daily || !entries) return { pass: { day: today, complete: true }, written: 0 };
 
 	// Yesterday's unfinished pass is abandoned: its sums are for a window
-	// that has moved on.
-	const start = previous && previous.day === today && !previous.complete ? previous : { day: today, complete: false };
+	// that has moved on. So is one whose carry an older build stored without
+	// the previous-week part, which would be written short.
+	const resumable =
+		previous && previous.day === today && !previous.complete && (!previous.carry || previous.carry.prev !== undefined);
+	const start = resumable ? previous : { day: today, complete: false };
 	const { since, until } = olderWindow(today);
 
-	const finished = new Map<string, number>();
+	const prevSince = previousStart(today);
+	const finished = new Map<string, OlderSums>();
 	let carry = start.carry;
 	let cursor = start.cursor;
 	let done = false;
@@ -85,8 +92,12 @@ export async function runOlderStep(
 			page.items.map((item) => item.data),
 			carry,
 			!done,
+			prevSince,
 		);
-		for (const [path, views] of folded.finished) finished.set(path, (finished.get(path) ?? 0) + views);
+		for (const [path, sums] of folded.finished) {
+			const seen = finished.get(path) ?? { views: 0, prev: 0 };
+			finished.set(path, { views: seen.views + sums.views, prev: seen.prev + sums.prev });
+		}
 		carry = folded.carry;
 		cursor = done ? undefined : page.cursor;
 	}
@@ -95,11 +106,11 @@ export async function runOlderStep(
 	if (finished.size > 0) {
 		const stored = await entries.getMany([...finished.keys()]);
 		const updates: Array<{ id: string; data: EntryRow }> = [];
-		for (const [path, views] of finished) {
+		for (const [path, sums] of finished) {
 			const row = stored.get(path);
 			// Traffic on a path no entry claims (any more) has nowhere to go.
 			if (!row) continue;
-			const next = withOlder(row, views, today);
+			const next = withOlder(row, sums, today);
 			if (next) updates.push({ id: path, data: next });
 		}
 		if (updates.length > 0) await entries.putMany(updates);
