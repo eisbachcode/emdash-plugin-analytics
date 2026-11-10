@@ -32,14 +32,14 @@ open does not ask the provider on every visit. Refresh asks again at once.
 A live week has no week before it to compare with; the comparison and the
 longer chart come from the store.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/widget.png" width="554" alt="The Traffic widget: visits and page views for the last 7 days with their change against the previous week, and the five most viewed pages with entry title, path and views">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/widget.png" width="554" alt="The Traffic widget: visits and page views for the last 7 days with their change against the previous week, a chart of the last 30 days, and the five most viewed pages with entry title, path, views and links to edit the entry and open the page">
 
 ## The Analytics page
 
 **Plugins → Analytics** in the admin sidebar, or "Open analytics" on the
 dashboard widget. Editors and admins see it.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/analytics-page.png" width="820" alt="The Analytics page over 30 days: visits and page views with their change, a daily chart, top entries with collection, path, views and visits, and tables of referrers and countries">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/analytics-page.png" width="820" alt="The Analytics page over 30 days: visits and page views with their change, a daily chart, top entries with collection, path, views, visits and links to edit and open each, the entry that is getting attention, and tables of referrers, countries and devices">
 
 The page asks the provider live on every load, so it has numbers from the
 first minute after setup; it does not wait for the sync. It only ever asks
@@ -89,7 +89,7 @@ which **Open settings** leads to. It makes one request to Cloudflare.
 
 **Plugins → Analytics per entry**, or "Per entry" on the Analytics page.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/per-entry.png" width="820" alt="Analytics per entry: every published entry with its collection, path, page views over 7 and 30 days and publish date, most viewed first">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/per-entry.png" width="820" alt="Analytics per entry: every published entry with its collection, path, page views over 7 days, their change against the 7 days before, page views over 30 days, publish date and links to edit and open it, most viewed first">
 
 Every published entry with its page views over the last 7 and 30 days,
 today included, by collection or across all of them. Click a column header
