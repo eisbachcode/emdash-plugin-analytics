@@ -42,6 +42,12 @@ against later EmDash releases. A plain `pnpm install` is enough.
   alternates phases and Refresh only schedules a tick for exactly this
   reason. `tests/budget.test.ts` counts each invocation's worst case; run it
   after any change that adds a `ctx` call.
+- **The widget reads the provider when the store is stale.** Before the
+  first sync, without a scheduler, or with a last sync over an hour old,
+  it asks for its own seven days and keeps the answer for five minutes
+  (`src/sync/live.ts`). The kept answer sits under the sync state's key as
+  a prefix, so one `kv.list` reads both: the first load on a site that
+  never synced spends nine of the ten calls.
 - **Block Kit keys are snake_case.** Use the constructors in
   `src/ui/blocks.ts`; the renderer silently ignores camelCase.
 - `routeCtx.ui` (locale, direction) reaches the widget, the pages and the

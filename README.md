@@ -9,24 +9,37 @@ entry that earned them rather than to a URL string.
 > **Status: early releases.** Cloudflare Web Analytics plus demo data: a
 > dashboard widget, an Analytics page with a setup check, a per-entry page,
 > an Analytics panel in the entry editor and four read-only MCP tools.
-> Needs EmDash 1.0.1 or later. See "Not in this version".
+> The widget and the Analytics page work without a scheduled sync; stored
+> history and per-entry numbers need one. Needs EmDash 1.0.1 or later. See
+> "Not in this version".
 
 The screenshots show demo data on a site made from EmDash's blog template.
 
 ## The dashboard widget
 
 A **Traffic** card on the dashboard: visits and page views for the last
-seven days against the week before, the five most viewed pages with the
-entry they belong to, and when the numbers were last synced.
+seven days against the week before, a chart of the last 30 days, the five
+most viewed pages with the entry they belong to, and when the numbers were
+last synced. Each page has a link that opens it on the site, and a page
+that belongs to an entry has a link to that entry's editor.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/widget.png" width="554" alt="The Traffic widget: visits and page views for the last 7 days with their change against the previous week, and the five most viewed pages with entry title, path and views">
+The widget reads the plugin's own store. When the store has nothing
+current, it reads the last seven days from the provider instead: before
+the first sync, on a site that runs no scheduled tasks, and when the last
+sync is more than an hour old. It says so ("Read live 2 minutes ago") and
+keeps each answer for five minutes, so a dashboard that several editors
+open does not ask the provider on every visit. Refresh asks again at once.
+A live week has no week before it to compare with; the comparison and the
+longer chart come from the store.
+
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/widget.png" width="554" alt="The Traffic widget: visits and page views for the last 7 days with their change against the previous week, a chart of the last 30 days, and the five most viewed pages with entry title, path, views and links to edit the entry and open the page">
 
 ## The Analytics page
 
 **Plugins → Analytics** in the admin sidebar, or "Open analytics" on the
 dashboard widget. Editors and admins see it.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/analytics-page.png" width="820" alt="The Analytics page over 30 days: visits and page views with their change, a daily chart, top entries with collection, path, views and visits, and tables of referrers and countries">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/analytics-page.png" width="820" alt="The Analytics page over 30 days: visits and page views with their change, a daily chart, top entries with collection, path, views, visits and links to edit and open each, the entry that is getting attention, and tables of referrers, countries and devices">
 
 The page asks the provider live on every load, so it has numbers from the
 first minute after setup; it does not wait for the sync. It only ever asks
@@ -43,10 +56,13 @@ page shows the store alone.
 - A daily chart of page views and visits. Days the provider reported
   nothing are left out rather than drawn as zero.
 - Top entries with path, and title and collection once the plugin has
-  matched the page to an entry.
-- Referrers and countries, read live for the days the provider counts
-  exactly (the last week on Cloudflare), so on a 30- or 90-day range they
-  cover the last week and say so.
+  matched the page to an entry, with links to the entry's editor and to
+  the page on the site.
+- "Getting attention" names the entry among them whose last seven days
+  grew the most against the seven before, once the store holds both weeks.
+- Referrers, countries and devices (desktop, mobile, tablet), read live for
+  the days the provider counts exactly (the last week on Cloudflare), so on
+  a 30- or 90-day range they cover the last week and say so.
 - "Open in Cloudflare" goes to this site's view in the Cloudflare dashboard.
 
 ## Check setup
@@ -64,8 +80,8 @@ exists. When the site tag or the hostname filter is wrong, it lists the
 site tags on the account with their hostnames and the last week's page
 views, so the right one can be copied into the settings.
 
-The check only reads; values are entered in the plugin's settings form. It
-makes one request to Cloudflare.
+The check only reads; values are entered in the plugin's settings form,
+which **Open settings** leads to. It makes one request to Cloudflare.
 
 <img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/setup-check.png" width="820" alt="The setup check with every row OK: data source, site URL, content index with 8 entries matched, scheduled sync and last sync">
 
@@ -73,14 +89,22 @@ makes one request to Cloudflare.
 
 **Plugins → Analytics per entry**, or "Per entry" on the Analytics page.
 
-<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/per-entry.png" width="820" alt="Analytics per entry: every published entry with its collection, path, page views over 7 and 30 days and publish date, most viewed first">
+<img src="https://raw.githubusercontent.com/eisbachcode/emdash-plugin-analytics/main/images/per-entry.png" width="820" alt="Analytics per entry: every published entry with its collection, path, page views over 7 days, their change against the 7 days before, page views over 30 days, publish date and links to edit and open it, most viewed first">
 
 Every published entry with its page views over the last 7 and 30 days,
 today included, by collection or across all of them. Click a column header
 to sort; sorting ascending puts the entries nobody visited first, which
 Cloudflare's own dashboard cannot show, because it only knows paths that
 got traffic. The publish date says when a small number just means a young
-entry.
+entry. Each row links to the entry's editor and to its page on the site.
+
+**Change, 7 days** compares the last seven days with the seven before:
+"+25%", "-10%", or "from 0" for an entry nobody viewed the week before.
+Both weeks come from the plugin's store, so they are exact; Cloudflare
+itself answers for the earlier week only from a sample. The column stays
+empty until the store holds two weeks, and for an entry published during
+the earlier week, whose first days would otherwise look like growth. The
+page says from which day the column fills.
 
 On a site with translations, each row also shows the 30-day total of all
 its languages, and **Languages combined** shows one row per translated
@@ -145,7 +169,7 @@ they are approved again, but the switch stays on. Turn it off and on.
 | An API token | permission **Account → Account Analytics → Read** |
 | `EMDASH_ENCRYPTION_KEY` | set on the site, or the API token cannot be stored (`npx emdash secrets generate`) |
 | URL patterns | each collection needs a **URL Pattern** (under Content Types), or no page can be matched to its entry. Sites made from EmDash's blog template start without them; the setup check says so |
-| Scheduled tasks | the sync runs as a plugin cron task. On Cloudflare Workers that needs the Cron Trigger and `scheduled` handler from EmDash's Cloudflare deployment guide; on Node, EmDash runs them itself |
+| Scheduled tasks | for stored history, the per-entry page, the editor panel and the MCP tools: the sync that fills them runs as a plugin cron task. On Cloudflare Workers that needs the Cron Trigger and `scheduled` handler from EmDash's Cloudflare deployment guide; on Node, EmDash runs them itself. The widget and the Analytics page read live without it |
 
 ### The token scope, precisely
 
@@ -167,6 +191,11 @@ your sites through the analytics data instead.
 
 Prefer an **account-owned** token over a user-owned one. A user token dies
 with that user's membership; an account-owned token does not.
+
+Every request asks for Cloudflare's
+[account-based rate limiting](https://developers.cloudflare.com/analytics/graphql-api/account-based-rate-limiting/),
+so the plugin's budget is the account's own 300 queries per five minutes
+and is not shared with other tools that use a token of the same user.
 
 ## Install
 
@@ -192,10 +221,15 @@ To run it sandboxed, list it under `sandboxed: [analytics]` instead. That
 needs a sandbox runner, which on Cloudflare means the Workers Paid plan; see
 EmDash's [plugin sandbox guide](https://docs.emdashcms.com/deployment/plugin-sandbox/).
 
-On Cloudflare, plan on Workers Paid either way. Installed under `plugins`,
-the pages and the widget work on Workers Free, but the scheduled sync runs
-under Free's 10 ms CPU limit per Cron Trigger and will most likely be cut
-off. This has not been tested on Free.
+On Cloudflare, plan on Workers Paid for the full plugin. Installed under
+`plugins`, the widget and the Analytics page need no scheduled task: they
+read the last week from Cloudflare when nothing is stored. The scheduled
+sync, which stores the history and counts views per entry, runs under
+Free's 10 ms CPU limit per Cron Trigger and will most likely be cut off.
+None of this has been tested on Free.
+
+Installing from the EmDash registry (Admin → Plugins) needs EmDash 1.2.0
+or later; earlier versions reject the release's provenance.
 
 ## Settings
 
@@ -214,12 +248,14 @@ Fill these in under Plugins → Analytics → Settings.
 
 ### Trying it without Cloudflare
 
-Set **Data source** to demo data and press Refresh on the dashboard widget.
-Refresh schedules a sync rather than running one, so the numbers appear
-after the next scheduled run: at once on Node, with the site's next Cron
-Trigger on Cloudflare. The plugin generates 90 days of plausible traffic, spread over your real
-entries plus two paths that are no entry, and runs it through the same sync,
-storage and path-to-entry join as real data. The widget says "Demo data, not
+Set **Data source** to demo data and open the dashboard. The widget shows
+the last week at once, read live like real data would be. The stored
+history and the per-entry numbers follow with the scheduled sync: Refresh
+asks for a run, which happens at once on Node and with the site's next
+Cron Trigger on Cloudflare. The plugin generates 90 days of plausible
+traffic, spread over your real entries plus two paths that are no entry,
+and runs it through the same sync, storage and path-to-entry join as real
+data. The widget says "Demo data, not
 real traffic" while it is on. Switching the data source back clears every
 stored number, so demo figures never mix with real ones.
 
@@ -297,7 +333,8 @@ Past that boundary every value is a multiple of ten, and days too quiet to
 survive the sample vanish from the response entirely.
 
 So this plugin never asks for a window starting more than seven days back,
-and never overwrites an exact stored row with an estimate. **After the
+the widget's live read included, and never overwrites an exact stored row
+with an estimate. **After the
 first week its own store holds numbers the Cloudflare dashboard can no
 longer reproduce.** The consequence to know about: the first week after
 installing shows less history than you might expect, because there is no
@@ -358,8 +395,10 @@ One account per site owner, or accept and document it.
 
 ## Not in this version
 
-- Referrers and countries beyond the last week. The plugin stores them per
-  sync, not per day, so they cannot be summed over a longer range.
+- Referrers, countries and devices beyond the last week. The plugin stores
+  them per sync, not per day, so they cannot be summed over a longer range.
+- The 7-day change as a sort order, and in the MCP tools. It is worked out
+  when the page loads and not stored as a column of its own.
 - A second provider. The `Provider` interface is in place for Plausible,
   which is also the answer for EU-storage requirements.
 - A Views column in the content list. EmDash lets only native admin code

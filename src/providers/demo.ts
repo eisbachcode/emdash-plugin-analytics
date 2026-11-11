@@ -35,7 +35,7 @@ export const DEMO_CAPABILITIES: ProviderCapabilities = {
 	meteredReads: false,
 	defaultInterval: "*/15 * * * *",
 	metrics: ["pageviews", "visits"],
-	breakdowns: ["referrers", "countries"],
+	breakdowns: ["referrers", "countries", "devices"],
 	// There is no sampling cliff to respect, so the first sync backfills a
 	// quarter of history and the pages have something to chart.
 	exactWindowDays: 90,
@@ -75,6 +75,12 @@ const REFERRER_SHARES: Array<[string, number]> = [
 	["bing.com", 0.03],
 	["news.ycombinator.com", 0.03],
 	["t.co", 0.03],
+];
+
+const DEVICE_SHARES: Array<[string, number]> = [
+	["desktop", 0.58],
+	["mobile", 0.37],
+	["tablet", 0.05],
 ];
 
 const COUNTRY_SHARES: Array<[string, number]> = [
@@ -159,6 +165,7 @@ class DemoProvider implements Provider {
 				topPaths,
 				referrers: split(REFERRER_SHARES, pageviews, visits),
 				countries: split(COUNTRY_SHARES, pageviews, visits),
+				devices: split(DEVICE_SHARES, pageviews, visits),
 				truncated: false,
 			},
 		};

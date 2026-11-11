@@ -2,6 +2,7 @@ import type { PluginRuntimeTestHost } from "@emdash-cms/plugin-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GRAPHQL_ENDPOINT, RUM_DATASET } from "../src/providers/cloudflare.js";
+import { LIVE_KEY } from "../src/sync/live.js";
 import { WAITING_KEY, type SyncState } from "../src/sync/scheduler.js";
 import { addDays } from "../src/sync/window.js";
 import { PAGE_REFRESH_ACTION, RANGE_ACTION, SETUP_ACTION } from "../src/ui/page.js";
@@ -209,6 +210,77 @@ describe("admin requests", () => {
 		const calls = await bridgeCalls(() => host!.admin.loadWidget("traffic"));
 		expect(calls.length, calls.join(", ")).toBeLessThanOrEqual(LIMIT);
 		expect(await host.inspect.kv.get(WAITING_KEY)).toEqual(expect.any(String));
+	});
+
+	/** A week from Cloudflare with five top paths, for a widget that reads live. */
+	function liveWeekReply(paths: string[]): Response {
+		const row = { count: 10, sum: { visits: 5 }, avg: { sampleInterval: 1 } };
+		return graphql({
+			totals: [row],
+			series: daysBack(7).map((date) => ({ ...row, dimensions: { date } })),
+			pages: paths.map((requestPath) => ({ ...row, dimensions: { requestPath } })),
+			refs: [],
+			geo: [],
+			devices: [],
+		});
+	}
+
+	it("a first widget load on a Cloudflare site that never synced: marks the wait, reads live, keeps the answer", async () => {
+		host = await newHost("cloudflare");
+		const paths = pathsOf(5);
+		await seedEntries(host, paths);
+		await host.http.respond(GRAPHQL_ENDPOINT, liveWeekReply(paths));
+
+		const calls = await bridgeCalls(() => host!.admin.loadWidget("traffic"));
+
+		expect(calls.length, calls.join(", ")).toBeLessThanOrEqual(LIMIT);
+		expect(await host.inspect.kv.get(WAITING_KEY)).toEqual(expect.any(String));
+		expect(await host.inspect.kv.get(LIVE_KEY)).toMatchObject({ topPaths: expect.arrayContaining([expect.anything()]) });
+		expect(calls).toContain("storageGetMany");
+	});
+
+	it("a first widget load on a demo site that never synced, whose provider reads the entries as well", async () => {
+		host = await newHost();
+		await seedEntries(host, pathsOf(5));
+
+		const calls = await bridgeCalls(() => host!.admin.loadWidget("traffic"));
+
+		expect(calls.length, calls.join(", ")).toBeLessThanOrEqual(LIMIT);
+		expect(await host.inspect.kv.get(WAITING_KEY)).toEqual(expect.any(String));
+		expect(await host.inspect.kv.get(LIVE_KEY)).toMatchObject({ topPaths: expect.arrayContaining([expect.anything()]) });
+		expect(calls).toContain("storageGetMany");
+	});
+
+	it("a widget load on a store whose sync has stopped: reads the store and the provider", async () => {
+		host = await newHost("cloudflare");
+		const paths = pathsOf(5);
+		await withData(host);
+		await setState(host, {
+			...synced,
+			provider: "cloudflare",
+			lastSync: new Date(NOW.getTime() - 3 * 86_400_000).toISOString(),
+		});
+		await host.http.respond(GRAPHQL_ENDPOINT, liveWeekReply(paths));
+
+		const calls = await bridgeCalls(() => host!.admin.loadWidget("traffic"));
+
+		expect(calls.length, calls.join(", ")).toBeLessThanOrEqual(LIMIT);
+		expect(calls).toContain("storageQuery");
+		expect(host.http.requests()).toHaveLength(1);
+		expect(await host.inspect.kv.get(LIVE_KEY)).not.toBeNull();
+	});
+
+	it("a widget Refresh that reads live", async () => {
+		host = await newHost("cloudflare");
+		const paths = pathsOf(5);
+		await seedEntries(host, paths);
+		await host.http.respond(GRAPHQL_ENDPOINT, liveWeekReply(paths));
+
+		const calls = await bridgeCalls(() => host!.admin.act("widget:traffic", "analytics:refresh"));
+
+		expect(calls.length, calls.join(", ")).toBeLessThanOrEqual(LIMIT);
+		expect((await host.inspect.scheduledTasks()).map((t) => String(t.name))).toContain("refresh");
+		expect(host.http.requests()).toHaveLength(1);
 	});
 
 	it("a setup check on a Cloudflare site that has not synced yet", async () => {

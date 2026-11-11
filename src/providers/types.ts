@@ -92,6 +92,8 @@ export interface Overview {
 	topPaths: PathRow[];
 	referrers: LabelledRow[];
 	countries: LabelledRow[];
+	/** Labelled with the provider's own device type: `desktop`, `mobile`, `tablet`. */
+	devices: LabelledRow[];
 	/**
 	 * True when the response hit its `limit` and was silently truncated.
 	 * Cloudflare caps returned groups without saying so.

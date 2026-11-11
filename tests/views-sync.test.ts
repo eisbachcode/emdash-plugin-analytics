@@ -57,9 +57,29 @@ describe("the older pass", () => {
 
 		for (const path of paths) {
 			const row = await entry(host, path);
-			expect(row, path).toMatchObject({ olderViews: 22 * 3, olderDay: TODAY });
+			// The newest six of those days are the older part of the week before views7.
+			expect(row, path).toMatchObject({ olderViews: 22 * 3, olderPrev: 6 * 3, olderDay: TODAY });
 			// Paths ticks ran in between and added the recent part.
 			expect(row?.views30, path).toBe(22 * 3 + (row?.recentViews ?? 0));
+		}
+	});
+
+	it("starts over when an older build left a half-summed path without its previous-week part", async () => {
+		host = await newHost();
+		const paths = pathsOf(3);
+		await seedEntries(host, paths);
+		await seedDaily(host, paths, OLDER_DAYS);
+		// As stored by a build that summed only the 30-day part: resuming here
+		// would write this path's previous week short by the rows already read.
+		await setState(host, {
+			...due,
+			older: { day: TODAY, complete: false, cursor: "stale", carry: { path: paths[0]!, views: 9 } },
+		});
+
+		await untilOlderDone(host);
+
+		for (const path of paths) {
+			expect(await entry(host, path), path).toMatchObject({ olderViews: 22 * 3, olderPrev: 6 * 3 });
 		}
 	});
 
