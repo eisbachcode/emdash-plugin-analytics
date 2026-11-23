@@ -10,10 +10,10 @@ import type { FetchLike } from "../src/providers/types.js";
 
 /** Captures what the adapter sent, and replies with what the test dictates. */
 function recorder(reply: unknown, status = 200) {
-	const calls: Array<{ query: string; variables: Record<string, unknown> }> = [];
+	const calls: Array<{ query: string; variables: Record<string, unknown>; headers: Headers }> = [];
 	const fetch: FetchLike = async (_url, init) => {
 		const body = JSON.parse(String(init?.body ?? "{}"));
-		calls.push({ query: body.query, variables: body.variables });
+		calls.push({ query: body.query, variables: body.variables, headers: new Headers(init?.headers) });
 		return new Response(typeof reply === "string" ? reply : JSON.stringify(reply), {
 			status,
 			headers: { "Content-Type": "application/json" },
@@ -43,7 +43,9 @@ function aliasFilters(query: string): string[] {
 	return [...query.matchAll(/filter: (\{[^}]*\})/g)].map((m) => m[1]!).filter((f) => !f.includes("accountTag"));
 }
 
-const EMPTY_OK = { data: { viewer: { accounts: [{ totals: [], series: [], pages: [], refs: [], geo: [] }] } } };
+const EMPTY_OK = {
+	data: { viewer: { accounts: [{ totals: [], series: [], pages: [], refs: [], geo: [], devices: [] }] } },
+};
 
 describe("the two bugs the old package shipped", () => {
 	it("filters bots out of every single alias", async () => {
@@ -54,7 +56,7 @@ describe("the two bugs the old package shipped", () => {
 		const { calls, fetch } = recorder(EMPTY_OK);
 		await provider(fetch).overview(RANGE);
 		const filters = aliasFilters(calls[0]!.query);
-		expect(filters).toHaveLength(5);
+		expect(filters).toHaveLength(6);
 		for (const f of filters) expect(f).toContain("bot: 0");
 	});
 
@@ -76,6 +78,18 @@ describe("query construction", () => {
 		for (const f of aliasFilters(calls[0]!.query)) expect(f).toContain("requestHost_in: $hosts");
 		// Both spellings survive: they are distinct requestHost values.
 		expect(calls[0]!.variables.hosts).toEqual(["example.com", "www.example.com"]);
+	});
+
+	it("asks for the account's own query budget on every request", async () => {
+		// Without the header the budget is shared with every other token of
+		// the user who created this one.
+		const { calls, fetch } = recorder(EMPTY_OK);
+		const cf = provider(fetch);
+		await cf.overview(RANGE);
+		await cf.paths(["/a/"], RANGE);
+		await cf.validate();
+		expect(calls).toHaveLength(3);
+		for (const call of calls) expect(call.headers.get("X-Rate-Limit-Type")).toBe("account-based");
 	});
 
 	it("omits the host variable entirely when no hosts are configured", async () => {
@@ -287,6 +301,36 @@ describe("parsing", () => {
 		if (res.ok) expect(res.value.referrers.map((r) => r.label)).toEqual([DIRECT_REFERRER, "www.google.com"]);
 	});
 
+	it("reads device types with their visits", async () => {
+		const { fetch } = recorder({
+			data: {
+				viewer: {
+					accounts: [
+						{
+							totals: [],
+							series: [],
+							pages: [],
+							refs: [],
+							geo: [],
+							devices: [
+								{ count: 30, sum: { visits: 21 }, dimensions: { deviceType: "desktop" } },
+								{ count: 12, sum: { visits: 9 }, dimensions: { deviceType: "mobile" } },
+							],
+						},
+					],
+				},
+			},
+		});
+		const res = await provider(fetch).overview(RANGE);
+		expect(res.ok).toBe(true);
+		if (res.ok) {
+			expect(res.value.devices).toEqual([
+				{ label: "desktop", visits: 21, pageviews: 30 },
+				{ label: "mobile", visits: 9, pageviews: 12 },
+			]);
+		}
+	});
+
 	it("keeps a missing day missing rather than inventing a zero", async () => {
 		// A quiet day produces no row at all. Filling it with 0 here would
 		// make "not fetched" and "no views" indistinguishable downstream.
@@ -365,6 +409,18 @@ describe("error mapping", () => {
 		const res = await provider(fetch).overview(RANGE);
 		expect(res.ok).toBe(false);
 		if (!res.ok) expect(res.error).toMatch(/429/);
+	});
+
+	it("names the rate limit when the account's own budget is used up", async () => {
+		// With account-based limits Cloudflare answers 200 and reports the
+		// exhausted budget as a GraphQL error.
+		const { fetch } = recorder({
+			data: null,
+			errors: [{ message: "Account acct-1 has exceeded its rate limit.", extensions: { code: "budget" } }],
+		});
+		const res = await provider(fetch).overview(RANGE);
+		expect(res.ok).toBe(false);
+		if (!res.ok) expect(res.problem?.key).toBe("cfRateLimited");
 	});
 
 	it("turns the Zone-versus-Account trap into one sentence", async () => {

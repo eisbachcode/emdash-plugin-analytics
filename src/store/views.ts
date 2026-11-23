@@ -16,10 +16,15 @@
  * Summing all thirty days from the store on every tick would need about
  * thirty `getMany` ids per path, which a ten-call sandbox budget cannot
  * pay for more than a few paths at a time.
+ *
+ * The seven days before `views7` are split the same way: `today - 7` is
+ * the recent window's first day, and `today - 13` to `today - 8` are the
+ * newest six days of the older window, which the older pass sums on the
+ * side (`olderPrev`).
  */
 
 import { addDays, daysBetween, UNSAMPLED_WINDOW_DAYS, type Day } from "../sync/window.js";
-import type { EntryRow } from "./rows.js";
+import { isPublished, type EntryRow } from "./rows.js";
 
 export const VIEWS7_DAYS = 7;
 export const VIEWS30_DAYS = 30;
@@ -30,6 +35,22 @@ export function olderWindow(today: Day): { since: Day; until: Day } {
 		since: addDays(today, -(VIEWS30_DAYS - 1)),
 		until: addDays(today, -(UNSAMPLED_WINDOW_DAYS + 1)),
 	};
+}
+
+/** The first day of the seven before `views7`: `today - 13`. */
+export function previousStart(today: Day): Day {
+	return addDays(today, -(VIEWS7_DAYS * 2 - 1));
+}
+
+/**
+ * Page views over the seven days before `views7`, or null while they are
+ * not known: before a pass has summed `olderPrev` for the entry, or for an
+ * entry published inside those days, whose earlier week is not a full one.
+ */
+export function previousViews7(entry: EntryRow, today: Day): number | null {
+	if (entry.olderPrev === undefined || entry.recentViews === undefined) return null;
+	if (entry.publishedAt && daysBetween(previousStart(today), entry.publishedAt.slice(0, 10)) > 0) return null;
+	return entry.olderPrev + Math.max(0, entry.recentViews - entry.views7);
 }
 
 /**
@@ -68,6 +89,7 @@ export function withRecent(
 ): EntryRow | null {
 	const stale = entry.olderDay !== today;
 	const olderViews = stale && olderSettled ? 0 : (entry.olderViews ?? 0);
+	const olderPrev = stale && olderSettled ? 0 : entry.olderPrev;
 	const olderDay = stale && olderSettled ? today : entry.olderDay;
 	const views30 = olderViews + fetched.recent;
 
@@ -75,6 +97,7 @@ export function withRecent(
 		entry.views7 === fetched.views7 &&
 		entry.recentViews === fetched.recent &&
 		(entry.olderViews ?? 0) === olderViews &&
+		entry.olderPrev === olderPrev &&
 		entry.views30 === views30
 	) {
 		return null;
@@ -85,6 +108,7 @@ export function withRecent(
 		views7: fetched.views7,
 		recentViews: fetched.recent,
 		olderViews,
+		...(olderPrev !== undefined && { olderPrev }),
 		...(olderDay !== undefined && { olderDay }),
 		views30,
 	};
@@ -97,9 +121,28 @@ export function withRecent(
  * The day is written even when the number is the same, because it is what
  * tells the paths tick the entry was reached today (see `withRecent`).
  */
-export function withOlder(entry: EntryRow, older: number, day: Day): EntryRow | null {
-	if (entry.olderViews === older && entry.olderDay === day) return null;
-	return { ...entry, olderViews: older, olderDay: day, views30: older + (entry.recentViews ?? 0) };
+export function withOlder(entry: EntryRow, older: OlderSums, day: Day): EntryRow | null {
+	if (entry.olderViews === older.views && entry.olderPrev === older.prev && entry.olderDay === day) return null;
+	return {
+		...entry,
+		olderViews: older.views,
+		olderPrev: older.prev,
+		olderDay: day,
+		views30: older.views + (entry.recentViews ?? 0),
+	};
+}
+
+/** One path's older window: all of it, and the days from `previousStart` on. */
+export interface OlderSums {
+	views: number;
+	prev: number;
+}
+
+/** A path whose rows may continue on the next page. `prev` is absent on a carry an older build stored. */
+export interface OlderCarry {
+	path: string;
+	views: number;
+	prev?: number;
 }
 
 /**
@@ -111,25 +154,58 @@ export function withOlder(entry: EntryRow, older: number, day: Day): EntryRow | 
  * it with its cursor, so the next tick can pick it up.
  */
 export function foldByPath(
-	rows: Array<{ path: string; pageviews: number }>,
-	carry: { path: string; views: number } | undefined,
+	rows: Array<{ date: Day; path: string; pageviews: number }>,
+	carry: OlderCarry | undefined,
 	hasMore: boolean,
-): { finished: Map<string, number>; carry: { path: string; views: number } | undefined } {
-	const finished = new Map<string, number>();
-	let current = carry ? { ...carry } : undefined;
+	prevSince: Day,
+): { finished: Map<string, OlderSums>; carry: OlderCarry | undefined } {
+	const finished = new Map<string, OlderSums>();
+	let current = carry ? { path: carry.path, views: carry.views, prev: carry.prev ?? 0 } : undefined;
+
+	const finish = (done: { path: string; views: number; prev: number }) => {
+		const sums = finished.get(done.path) ?? { views: 0, prev: 0 };
+		finished.set(done.path, { views: sums.views + done.views, prev: sums.prev + done.prev });
+	};
 
 	for (const row of rows) {
+		const prev = daysBetween(prevSince, row.date) >= 0 ? row.pageviews : 0;
 		if (current && current.path === row.path) {
 			current.views += row.pageviews;
+			current.prev += prev;
 			continue;
 		}
-		if (current) finished.set(current.path, (finished.get(current.path) ?? 0) + current.views);
-		current = { path: row.path, views: row.pageviews };
+		if (current) finish(current);
+		current = { path: row.path, views: row.pageviews, prev };
 	}
 
 	if (current && !hasMore) {
-		finished.set(current.path, (finished.get(current.path) ?? 0) + current.views);
+		finish(current);
 		current = undefined;
 	}
 	return { finished, carry: current };
+}
+
+/** Views an entry needs in its last seven days before its growth is worth a sentence. */
+const RISING_MIN_VIEWS = 5;
+
+/**
+ * The published entry whose last seven days grew the most against the
+ * seven before, or null when none grew. Small numbers swing wildly, so an
+ * entry needs a handful of views and an earlier week that had any: growth
+ * from nothing has no ratio to rank by.
+ */
+export function risingEntry(entries: Iterable<EntryRow>, today: Day): { entry: EntryRow; previous: number } | null {
+	let best: { entry: EntryRow; previous: number } | null = null;
+	let bestRatio = 1;
+	for (const entry of entries) {
+		if (!isPublished(entry) || entry.views7 < RISING_MIN_VIEWS) continue;
+		const previous = previousViews7(entry, today);
+		if (previous === null || previous === 0) continue;
+		const ratio = entry.views7 / previous;
+		if (ratio > bestRatio || (best !== null && ratio === bestRatio && entry.views7 > best.entry.views7)) {
+			best = { entry, previous };
+			bestRatio = ratio;
+		}
+	}
+	return best;
 }
