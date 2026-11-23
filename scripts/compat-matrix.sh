@@ -3,10 +3,10 @@
 # Run the plugin's suite against a list of EmDash versions and print which
 # combinations pass.
 #
-# Why this exists: `@emdash-cms/plugin-test` pins `emdash` exactly (0.2.6 pins
-# 1.0.1), so out of the box a plugin is only ever tested against the one host
-# version the harness chose. pnpm `overrides` rewire the harness's own pinned
-# dependency, which is how a range becomes testable at all.
+# Why this exists: `@emdash-cms/plugin-test` pins `emdash` exactly (0.2.13
+# pins 1.6.0), so out of the box a plugin is only ever tested against the one
+# host version the harness chose. pnpm `overrides` rewire the harness's own
+# pinned dependency, which is how a range becomes testable at all.
 #
 # That is a workaround, not a supported path. Nothing stops a future plugin-test
 # from importing a symbol that exists only in its pinned host, and the failure
@@ -17,12 +17,23 @@
 # (`emdash/plugin-test-runtime` became `emdash/internal/plugin-test-runtime`),
 # so no harness before plugin-test 0.2.6 can start a 1.0 host. A version
 # written as `version:harness` also overrides plugin-test, for example
-# `1.0.1:0.2.6`.
+# `1.0.1:0.2.6`. Give every host the harness that was released with it:
+#
+#   1.0.1:0.2.6  1.1.0:0.2.7  1.2.0:0.2.8   1.3.0:0.2.9
+#   1.3.1:0.2.10 1.4.0:0.2.11 1.5.0:0.2.12  1.6.0:0.2.13
+#
+# Each row typechecks before it runs the suite. The repository's own types
+# are the pinned release, so the row for the floor is the only place where an
+# API that the floor lacks fails to compile.
+#
+# Zod follows the host as well. EmDash pins it exactly and types the MCP tool
+# declarations with its own copy, and with a second Zod in the program `tsc`
+# compares the two structurally until it runs out of memory.
 #
 # `--no-baseline` skips the baseline row, for CI jobs that each run one
 # version while a separate job runs the suites on their pinned host.
 #
-# Usage: scripts/compat-matrix.sh [--no-baseline] [version[:harness]...]      (default: 1.0.1)
+# Usage: scripts/compat-matrix.sh [--no-baseline] [version[:harness]...]      (default: 1.0.1:0.2.6)
 
 set -euo pipefail
 
@@ -36,7 +47,7 @@ if [ "${1:-}" = "--no-baseline" ]; then
 fi
 
 VERSIONS=("${@:-}")
-[ -z "${VERSIONS[0]:-}" ] && VERSIONS=(1.0.1)
+[ -z "${VERSIONS[0]:-}" ] && VERSIONS=(1.0.1:0.2.6)
 
 if [ -n "$(git status --porcelain pnpm-workspace.yaml pnpm-lock.yaml)" ]; then
 	echo "refusing to run: pnpm-workspace.yaml or pnpm-lock.yaml already modified" >&2
@@ -75,6 +86,14 @@ run_suites() {
 		return
 	fi
 	for p in "${PKGS[@]}"; do
+		if ! types_out=$(pnpm typecheck 2>&1); then
+			echo "  $p does not typecheck against $label:"
+			# `tsc` out of memory prints no diagnostic, only a V8 trace.
+			printf '%s\n' "$types_out" | grep -E 'error TS|FATAL ERROR' | head -40 | sed 's/^/    /' || true
+			record "$label" "$p" "types-FAIL"
+			FAILED=1
+			continue
+		fi
 		if out=$(pnpm vitest run 2>&1); then
 			# `|| true` matters: with `set -eo pipefail` a grep that matches
 			# nothing would kill the script and hide the reason.
@@ -112,12 +131,19 @@ for spec in "${VERSIONS[@]}"; do
 	[ "$spec" != "$v" ] && harness="${spec#*:}"
 	echo "emdash $v${harness:+ (plugin-test $harness)}"
 	git checkout -- pnpm-workspace.yaml pnpm-lock.yaml
+	if ! zod=$(npm view "emdash@$v" dependencies.zod 2>/dev/null) || [ -z "$zod" ]; then
+		echo "  could not read the Zod version emdash@$v pins"
+		for p in "${PKGS[@]}"; do record "$v" "$p" "install-fail"; done
+		FAILED=1
+		continue
+	fi
 	cat >> pnpm-workspace.yaml <<-EOF
 
 	overrides:
 	  emdash: $v
 	  "@emdash-cms/cloudflare": $v
 	  "@emdash-cms/blocks": $v
+	  zod: "$zod"
 	EOF
 	if [ -n "$harness" ]; then
 		printf '  "@emdash-cms/plugin-test": %s\n' "$harness" >> pnpm-workspace.yaml
@@ -136,7 +162,7 @@ for p in "${PKGS[@]}"; do
 	echo
 done
 echo
-echo "numbers are passing tests; FAIL or install-fail means the combination is not supported"
+echo "numbers are passing tests; FAIL, types-FAIL or install-fail means the combination is not supported"
 
 if [ "$FAILED" -ne 0 ]; then
 	echo

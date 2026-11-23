@@ -6,15 +6,20 @@
 # Three jobs, because they answer different questions:
 #
 #   tests     gating. Typecheck, manifest validation and the suite on the
-#             EmDash version the harness pins. This is the
-#             baseline that tells a harness breakage from a plugin regression.
+#             EmDash version the harness pins, which is the release the
+#             repository is developed against. This is the baseline that
+#             tells a harness breakage from a plugin regression.
 #   declared  gating, one job per version so they run in parallel. The
-#             versions inside our published range. A failure here is our
-#             regression and blocks the branch.
-#   latest    informational, never blocks. Runs against whatever EmDash is
-#             current on npm. EmDash ships a minor every 6-8 days and any minor
-#             may carry breaking changes, so this is the signal to widen the
-#             tested-up-to line in the README -- or not to.
+#             floor of our published range, with the harness of its time:
+#             types and suite. A failure here is our regression and blocks
+#             the branch.
+#   latest    informational on a pull request and a push, where it never
+#             blocks. Runs against whatever EmDash is current on npm. EmDash
+#             ships a minor every 6-8 days and any minor may carry breaking
+#             changes, so this is the signal to move the toolchain and the
+#             tested-up-to line in the README -- or not to. The weekly run
+#             fails on it, because a run that stays green is a signal nobody
+#             sees: 1.5.0 broke one test and two scheduled runs said success.
 name: compat matrix
 
 on:
@@ -57,7 +62,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        emdash: [1.0.1]
+        include:
+          - emdash: 1.0.1
+            harness: 0.2.6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -66,12 +73,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: ./scripts/compat-matrix.sh --no-baseline "${{ matrix.emdash }}"
+      - run: ./scripts/compat-matrix.sh --no-baseline "${{ matrix.emdash }}:${{ matrix.harness }}"
 
   latest:
     name: current EmDash (informational)
     runs-on: ubuntu-latest
-    continue-on-error: true
+    continue-on-error: ${{ github.event_name != 'schedule' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0

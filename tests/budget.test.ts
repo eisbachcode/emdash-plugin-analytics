@@ -27,12 +27,13 @@ import {
 /**
  * Every invocation, at its worst case, against EmDash's sandbox limit.
  *
- * A sandboxed invocation may make ten subrequests and each `ctx` call is
- * one; the eleventh throws "Too many subrequests" on Cloudflare and aborts
- * the tick or the render. The harness does not enforce the limit, so each
- * test here counts the calls and also checks the invocation did its full
- * share of work, so a fixture too small to reach the worst case fails
- * instead of passing quietly.
+ * Before EmDash 1.5.0 a sandboxed invocation may make ten subrequests,
+ * thirty from it, and the plugin supports both, so ten is the limit here.
+ * Each `ctx` call is one; one too many throws "Too many subrequests" on
+ * Cloudflare and aborts the tick or the render. The harness does not
+ * enforce the limit, so each test here counts the calls and also checks
+ * the invocation did its full share of work, so a fixture too small to
+ * reach the worst case fails instead of passing quietly.
  */
 
 const LIMIT = 10;

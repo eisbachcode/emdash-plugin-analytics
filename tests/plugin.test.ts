@@ -69,12 +69,19 @@ async function firePublish(runtime: PluginRuntimeTestHost, collection: string, i
 describe("scheduling without an Enable click", () => {
 	it("schedules both tasks from the widget's first page load", async () => {
 		// The PoC's own acceptance row, and the fix for the review's first
-		// blocker: `plugin:activate` is dispatched only by the admin Enable
-		// endpoint, so a site that registers the plugin through `plugins: []`
-		// never gets one. Nothing here calls activate.
+		// blocker: before EmDash 1.2.0 `plugin:activate` is dispatched only by
+		// the admin Enable endpoint, so a site that registers the plugin
+		// through `plugins: []` never gets one, and the widget's first load is
+		// what schedules. Nothing here calls activate.
+		//
+		// A host that activates the plugin when it first starts it, which this
+		// harness does from EmDash 1.5.0, records that in the plugin's state
+		// and has both tasks before the widget loads.
 		host = await newHost();
 
-		await expect(host.inspect.scheduledTasks()).resolves.toEqual([]);
+		const activatedAtStart = (await host.inspect.pluginState()) !== null;
+		const before = await host.inspect.scheduledTasks();
+		expect(before.map((t) => String(t.name)).sort()).toEqual(activatedAtStart ? ["reconcile", "sync"] : []);
 
 		await host.admin.loadWidget("traffic");
 

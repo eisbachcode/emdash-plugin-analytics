@@ -2,6 +2,8 @@ import { validateBlockResponse } from "@emdash-cms/blocks/server";
 import { createPluginRuntimeTestHost, type PluginRuntimeTestHost } from "@emdash-cms/plugin-test";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { rangeAction } from "../src/ui/page.js";
+
 /**
  * The analytics page through the real sandbox, fed by the demo provider.
  * Plugin storage outlives `dispose()` within a file; these tests only read
@@ -48,7 +50,7 @@ describe("the analytics page", () => {
 		expect(validateBlockResponse(first, { pluginPagePaths: pages }).valid).toBe(true);
 		expect(chartLengths(first)).toEqual([30, 30]);
 
-		const wider = await host.admin.act("/analytics", "analytics:range", { value: 90 });
+		const wider = await host.admin.act("/analytics", rangeAction(90), { value: 90 });
 		expect(chartLengths(wider)).toEqual([90, 90]);
 	});
 

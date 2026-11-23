@@ -6,9 +6,11 @@
  *
  * 1. **Ten subrequests per sandboxed invocation.** Every `ctx` call
  *    crosses the bridge as one, `log` included, and the eleventh aborts
- *    the invocation. Each phase below is annotated with its call count,
- *    `tests/budget.test.ts` counts them, and no tick logs: a failure is
- *    recorded in the sync state, where the widget shows it.
+ *    the invocation. EmDash 1.5.0 allows thirty, but the plugin runs on
+ *    hosts from 1.0.1, so ten is what every tick is sized for. Each
+ *    phase below is annotated with its call count, `tests/budget.test.ts`
+ *    counts them, and no tick logs: a failure is recorded in the sync
+ *    state, where the widget shows it.
  * 2. **No retry, no backoff.** A recurring cron failure is logged and
  *    `next_run_at` simply advances. So every tick derives its work from
  *    stored state and never assumes the previous one ran.

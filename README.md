@@ -164,7 +164,7 @@ they are approved again, but the switch stays on. Turn it off and on.
 
 | | |
 |---|---|
-| EmDash | `>=1.0.1`, the first stable release. Sites on 0.x keep the plugin version they have; 0.2.x supports EmDash 0.39 and later |
+| EmDash | `>=1.0.1`, the first stable release. Tested on every release from 1.0.1 to 1.6.0. Sites on 0.x keep the plugin version they have; 0.2.x supports EmDash 0.39 and later |
 | A Cloudflare account | with Web Analytics enabled for the site |
 | An API token | permission **Account → Account Analytics → Read** |
 | `EMDASH_ENCRYPTION_KEY` | set on the site, or the API token cannot be stored (`npx emdash secrets generate`) |
@@ -244,7 +244,7 @@ Fill these in under Plugins → Analytics → Settings.
 | Hostnames to count | Comma-separated. Empty uses the site URL and its `www` form. One site tag often also covers `*.pages.dev` preview deploys, which should not be counted as production traffic |
 | Sync every | 15 minutes by default |
 | Keep daily rows for | 90 days by default |
-| Paths per sync tick | 36 by default and at most: the most one tick can handle within a sandboxed invocation's ten subrequests. Lower it to write fewer D1 rows per day |
+| Paths per sync tick | 36 by default and at most: the most one tick can handle within the ten subrequests a sandboxed invocation gets before EmDash 1.5.0. Lower it to write fewer D1 rows per day |
 
 ### Trying it without Cloudflare
 
@@ -403,9 +403,11 @@ One account per site owner, or accept and document it.
   which is also the answer for EU-storage requirements.
 - A Views column in the content list. EmDash lets only native admin code
   add one, which a sandboxed plugin cannot ship.
-- Large sites catch up slowly. Every sync step fits EmDash's sandbox limit
-  of ten calls, so the index walk, the daily 30-day sum and the
-  per-path sync each handle a few dozen entries per tick.
+- Large sites catch up slowly. Every sync step fits the ten calls a
+  sandboxed invocation gets before EmDash 1.5.0, so the index walk, the
+  daily 30-day sum and the per-path sync each handle a few dozen entries
+  per tick. EmDash 1.5.0 raised that limit to thirty; the plugin does not
+  use the extra room yet.
 
 ## Licence
 
