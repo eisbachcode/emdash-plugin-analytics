@@ -197,10 +197,111 @@ describe("renderPage", () => {
 			...input().state,
 			referrers: Array.from({ length: 10 }, (_, i) => ({ label: `ref-${i}.example`, visits: 10 - i })),
 			countries: Array.from({ length: 10 }, (_, i) => ({ label: "DE", visits: 10 - i })),
+			devices: Array.from({ length: 10 }, (_, i) => ({ label: "desktop", visits: 10 - i })),
 		};
 		expectValid(
-			renderPage(input({ range: 90, rollups: history(180), topEntries: { rows, partial: false }, entriesByPath, state })),
+			renderPage(
+				input({
+					range: 90,
+					rollups: history(180),
+					topEntries: { rows, partial: false },
+					entriesByPath,
+					state,
+					siteUrl: "https://example.test",
+				}),
+			),
 		);
+	});
+
+	it("lists devices beside referrers and countries, named in the reader's language", () => {
+		const breakdowns = {
+			referrers: [],
+			countries: [],
+			devices: [
+				{ label: "desktop", visits: 30, pageviews: 40 },
+				{ label: "mobile", visits: 12, pageviews: 15 },
+				{ label: "smarttv", visits: 1, pageviews: 1 },
+			],
+			since: addDays(TODAY, -29),
+		};
+		const devices = (locale: string) =>
+			find(renderPage(input({ breakdowns, locale })), "table").find((t) => t.block_id === "analytics:devices")!
+				.rows as Array<Record<string, unknown>>;
+		expect(devices("en")).toEqual([
+			{ label: "Desktop", visits: 30 },
+			{ label: "Mobile", visits: 12 },
+			{ label: "smarttv", visits: 1 },
+		]);
+		expect(devices("de").map((row) => row.label)).toEqual(["Desktop", "Mobilgerät", "smarttv"]);
+	});
+
+	it("falls back to the last sync's devices when the provider did not answer live", () => {
+		const blocks = renderPage(input({ state: { ...input().state, devices: [{ label: "tablet", visits: 3 }] } }));
+		const table = find(blocks, "table").find((t) => t.block_id === "analytics:devices")!;
+		expect(table.rows).toEqual([{ label: "Tablet", visits: 3 }]);
+	});
+
+	it("links each top entry to its editor and its page, and a path that is no entry to its page only", () => {
+		const blocks = renderPage(
+			input({
+				siteUrl: "https://example.test",
+				topEntries: {
+					rows: [
+						{ path: "/blog/hello/", pageviews: 20, visits: 15 },
+						{ path: "/static/", pageviews: 2, visits: 2 },
+					],
+					partial: false,
+				},
+			}),
+		);
+		expectValid(blocks);
+		const rows = find(blocks, "table")[0]!.rows as Array<Record<string, { target: unknown }>>;
+		expect(rows[0]!.edit!.target).toEqual({ kind: "content", collection: "posts", id: "id-/blog/hello/" });
+		expect(rows[0]!.open!.target).toEqual({ kind: "external", url: "https://example.test/blog/hello/" });
+		expect(rows[1]).not.toHaveProperty("edit");
+		expect(rows[1]!.open!.target).toEqual({ kind: "external", url: "https://example.test/static/" });
+	});
+
+	describe("the entry that is getting attention", () => {
+		const grown = (path: string, title: string, views7: number, previous: number) => ({
+			...entry(path, title),
+			views7,
+			recentViews: views7,
+			olderPrev: previous,
+			olderDay: TODAY,
+		});
+		const entriesByPath = new Map([
+			["/", grown("/", "Home", 50, 45)],
+			["/blog/hello/", grown("/blog/hello/", "Hello", 30, 10)],
+		]);
+		const attention = (blocks: unknown[]) =>
+			find(blocks, "context")
+				.map((b) => String(b.text))
+				.find((text) => text.startsWith("Getting attention"));
+
+		it("is named with its views and its growth against the seven days before", () => {
+			expect(attention(renderPage(input({ entriesByPath })))).toBe(
+				"Getting attention: Hello, with 30 page views in the last 7 days, +200% against the 7 days before.",
+			);
+		});
+
+		it("is not named while the store holds less than the two weeks being compared", () => {
+			expect(attention(renderPage(input({ entriesByPath, rollups: history(13) })))).toBeUndefined();
+		});
+
+		it("is not named when nothing grew", () => {
+			const flat = new Map([["/", grown("/", "Home", 40, 45)]]);
+			expect(attention(renderPage(input({ entriesByPath: flat })))).toBeUndefined();
+		});
+	});
+
+	it("points to the settings from an empty page when the fix is there", () => {
+		const empty = (state: PageInput["state"]) =>
+			JSON.stringify(renderPage(input({ rollups: [], topEntries: { rows: [], partial: false }, state })));
+		expect(
+			empty({ phase: "overview", lastError: "not configured", lastProblem: { key: "notConfigured", params: { missing: "cfApiToken" } } }),
+		).toContain("plugin-settings");
+		expect(empty({ phase: "overview" })).not.toContain("plugin-settings");
 	});
 
 	it("explains an empty store instead of rendering zeroes", () => {

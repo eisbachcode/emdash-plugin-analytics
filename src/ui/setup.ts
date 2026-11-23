@@ -22,7 +22,7 @@ import type { Result, Site } from "../providers/types.js";
 import { readSettings, type AnalyticsSettings } from "../settings.js";
 import { buildProvider, readState, REFRESH_TASK, SYNC_TASK, WAITING_KEY, type SyncState } from "../sync/scheduler.js";
 import { addDays, utcDay, UNSAMPLED_WINDOW_DAYS } from "../sync/window.js";
-import { actions, banner, button, code, context, header, table, type AnalyticsBlock } from "./blocks.js";
+import { actions, banner, button, code, context, header, link, table, type AnalyticsBlock } from "./blocks.js";
 import { formatAge, formatCount } from "./format.js";
 import { RANGE_ACTION, SETUP_ACTION } from "./page.js";
 
@@ -372,6 +372,7 @@ export function renderSetup(facts: SetupFacts, backValue: number, locale: string
 			[
 				button(RANGE_ACTION, t(lang, "backToAnalytics"), { style: "secondary", value: backValue }),
 				button(SETUP_ACTION, t(lang, "checkAgain"), { style: "secondary", value: backValue }),
+				link(t(lang, "openSettings"), { kind: "plugin-settings" }, { appearance: "secondary" }),
 			],
 			{ blockId: "analytics:setup:controls" },
 		),

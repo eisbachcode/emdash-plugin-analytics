@@ -18,8 +18,9 @@
  *   only from the day the plugin started syncing that entry. The entry
  *   table therefore says which days it covers instead of implying the full
  *   range.
- * - Referrers and countries are a snapshot of the latest overview window,
- *   not a per-day store, so they are labelled with the day they start.
+ * - Referrers, countries and devices are a snapshot of the latest overview
+ *   window, not a per-day store, so they are labelled with the day they
+ *   start.
  */
 
 import type { PluginContext } from "emdash/plugin";
@@ -27,6 +28,7 @@ import type { PluginContext } from "emdash/plugin";
 import { entriesStore, dailyStore, rollupStore, BIND_LIMIT } from "../store/access.js";
 import type { LabelledRow, Overview, Provider } from "../providers/types.js";
 import { historyReaches, sumWindow, type EntryRow, type RollupRow } from "../store/rows.js";
+import { previousStart, risingEntry } from "../store/views.js";
 import type { SyncState } from "../sync/scheduler.js";
 import { addDays, daysBetween, utcDay, type Day } from "../sync/window.js";
 import {
@@ -42,9 +44,10 @@ import {
 	timeseries,
 	type AnalyticsBlock,
 } from "./blocks.js";
-import { langOf, t, type Lang } from "../i18n.js";
-import { comparisonText, formatCount, formatDay, trendOf } from "./format.js";
-import { emptyReason, statusLine } from "./status.js";
+import { langOf, t, type Lang, type MessageKey } from "../i18n.js";
+import { comparisonText, formatCount, formatDay, percentChange, readablePath, trendOf } from "./format.js";
+import { LINK_COLUMNS, linkCells } from "./links.js";
+import { emptyReason, fixedInSettings, statusLine } from "./status.js";
 
 export const PAGE_PATH = "/analytics";
 /** The per-entry page (`./content.ts`), named here to keep the import one-way. */
@@ -96,10 +99,12 @@ export interface PageInput {
 	/** The provider's own dashboard, or null when it has none (demo data). */
 	dashboardUrl: string | null;
 	/**
-	 * Referrers and countries from the live answer, and the first day it
-	 * covers, which is later than the range start for long ranges.
+	 * Referrers, countries and devices from the live answer, and the first
+	 * day it covers, which is later than the range start for long ranges.
 	 */
-	breakdowns?: { referrers: LabelledRow[]; countries: LabelledRow[]; since: Day };
+	breakdowns?: { referrers: LabelledRow[]; countries: LabelledRow[]; devices: LabelledRow[]; since: Day };
+	/** The site's address, for the links to its pages. */
+	siteUrl?: string;
 	now: Date;
 	locale?: string;
 }
@@ -119,6 +124,7 @@ export async function loadPage(
 	provider?: Provider | null,
 ): Promise<PageInput> {
 	const today = utcDay(now);
+	const siteUrl = ctx.site.url;
 
 	const rangeStart = addDays(today, -(range - 1));
 	// One day short of the exact window: measured on eisbachcode.de,
@@ -165,7 +171,13 @@ export async function loadPage(
 			topEntries,
 			entriesByPath: await lookup(topEntries),
 			dashboardUrl,
-			breakdowns: { referrers: live.value.referrers, countries: live.value.countries, since: liveSince },
+			breakdowns: {
+				referrers: live.value.referrers,
+				countries: live.value.countries,
+				devices: live.value.devices,
+				since: liveSince,
+			},
+			...(siteUrl && { siteUrl }),
 			now,
 			locale,
 		};
@@ -196,6 +208,7 @@ export async function loadPage(
 		topEntries,
 		entriesByPath: await lookup(topEntries),
 		dashboardUrl,
+		...(siteUrl && { siteUrl }),
 		now,
 		locale,
 	};
@@ -205,7 +218,7 @@ export async function loadPage(
  * One row per day: the live answer where it has the day, being the newer
  * of the two, and the store for every day before the live window.
  */
-export function mergeDays(stored: RollupRow[], live: Overview, now: Date): RollupRow[] {
+export function mergeDays(stored: RollupRow[], live: Pick<Overview, "series">, now: Date): RollupRow[] {
 	const byDay = new Map<Day, RollupRow>();
 	for (const row of live.series) {
 		byDay.set(row.date, { ...row, fetchedAt: now.toISOString() });
@@ -258,7 +271,13 @@ export function renderPage(input: PageInput): AnalyticsBlock[] {
 			empty({
 				title: t(lang, "noAnalyticsYet"),
 				description: emptyReason(state, now, lang),
-				actions: [refreshButton(range, lang), setupButton(range, lang)],
+				actions: [
+					refreshButton(range, lang),
+					setupButton(range, lang),
+					...(fixedInSettings(state.lastProblem)
+						? [link(t(lang, "openSettings"), { kind: "plugin-settings" }, { appearance: "secondary" })]
+						: []),
+				],
 			}),
 		];
 	}
@@ -330,20 +349,37 @@ export function renderPage(input: PageInput): AnalyticsBlock[] {
 				{ key: "path", label: t(lang, "colPath"), format: "code" },
 				{ key: "views", label: t(lang, "colViews"), format: "number" },
 				{ key: "visits", label: t(lang, "colVisits"), format: "number" },
+				...LINK_COLUMNS,
 			],
 			rows: input.topEntries.rows.map((row) => {
 				const known = input.entriesByPath.get(row.path);
 				return {
 					entry: known?.title || "—",
 					collection: known ? (state.collectionLabels?.[known.collection] ?? known.collection) : "",
-					path: row.path,
+					path: readablePath(row.path),
 					views: row.pageviews,
 					visits: row.visits,
+					...linkCells(row.path, known, input.siteUrl, lang),
 				};
 			}),
 			emptyText: t(lang, "entriesEmpty"),
 		}),
 	);
+
+	// The comparison week has to be in the store whole, or every entry
+	// would seem to have grown out of the days before the plugin ran.
+	const rising = historyReaches(rollups, previousStart(today)) ? risingEntry(input.entriesByPath.values(), today) : null;
+	if (rising) {
+		out.push(
+			context(
+				t(lang, "gettingAttention", {
+					title: rising.entry.title || readablePath(rising.entry.path),
+					views: formatCount(rising.entry.views7, lang),
+					change: percentChange(rising.entry.views7, rising.previous, lang),
+				}),
+			),
+		);
+	}
 
 	out.push(
 		columns([
@@ -364,6 +400,16 @@ export function renderPage(input: PageInput): AnalyticsBlock[] {
 					t(lang, "colCountry"),
 					input.breakdowns?.countries ?? state.countries ?? [],
 					countryName(lang),
+					lang,
+				),
+			],
+			[
+				header(t(lang, "devices")),
+				labelledTable(
+					"analytics:devices",
+					t(lang, "colDevice"),
+					input.breakdowns?.devices ?? state.devices ?? [],
+					deviceName(lang),
 					lang,
 				),
 			],
@@ -439,6 +485,20 @@ function countryName(locale: string | undefined): (code: string) => string {
 		} catch {
 			return code;
 		}
+	};
+}
+
+const DEVICE_NAMES: Record<string, MessageKey> = {
+	desktop: "deviceDesktop",
+	mobile: "deviceMobile",
+	tablet: "deviceTablet",
+};
+
+/** The provider's device types in the reader's language, anything else as it came. */
+function deviceName(lang: Lang): (type: string) => string {
+	return (type) => {
+		const key = DEVICE_NAMES[type.toLowerCase()];
+		return key ? t(lang, key) : type;
 	};
 }
 

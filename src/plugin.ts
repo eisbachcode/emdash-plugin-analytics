@@ -17,9 +17,10 @@
 
 import type { PluginContext, SandboxedPlugin } from "emdash/plugin";
 
-import { langOf, problemText, t, type Lang } from "./i18n.js";
+import { failure, langOf, problemText, t, type Lang } from "./i18n.js";
 import { entryRefOf, indexEntry, markEntryStatus } from "./index/entries.js";
 import { readSettings, type SettingsResult } from "./settings.js";
+import { liveSource, readStateAndLive, type LiveWeek } from "./sync/live.js";
 import {
 	buildProvider,
 	ensureScheduled,
@@ -48,7 +49,7 @@ import {
 import { loadSetup, renderSetup } from "./ui/setup.js";
 import { CONTENT_PATH, loadContent, parseContentInput, renderContent } from "./ui/content.js";
 import { loadPanel, renderPanel } from "./ui/panel.js";
-import { loadWidget, renderWidget, REFRESH_ACTION } from "./ui/widget.js";
+import { loadWidget, renderWidget, REFRESH_ACTION, type LiveOption } from "./ui/widget.js";
 import { DEFAULT_SYNC_INTERVAL } from "./settings.js";
 import { mcpTools } from "./tools/declare.js";
 import { entryViews, siteTotals, topEntries, TOOL_ROUTES, unviewedEntries } from "./tools/load.js";
@@ -167,21 +168,33 @@ const plugin: SandboxedPlugin = {
 				}
 
 				if (interaction.kind === "refresh") {
-					const toast = await refresh(ctx, await readSettings(ctx), now, lang);
-					const state = await readState(ctx);
-					const input = await loadWidget(ctx, state, now, lang);
-					return { blocks: renderWidget(input), toast };
+					const settings = await readSettings(ctx);
+					const toast = await refresh(ctx, settings, now, lang);
+					const { state, kept } = await readStateAndLive(ctx);
+					const input = await loadWidget(ctx, state, now, lang, {
+						live: liveOption(ctx, settings, kept, true),
+						siteUrl: ctx.site.url,
+					});
+					// A live answer is the refresh the reader asked for, whether or
+					// not a sync could be requested as well.
+					return {
+						blocks: renderWidget(input),
+						toast: input.live?.ok ? { message: t(lang, "pageRefreshed"), type: "success" as const } : toast,
+					};
 				}
 
 				// The widget's own page load is the third scheduling entry
 				// point, and the one the PoC measures: after a single dashboard
 				// visit, `_emdash_cron_tasks` should hold the sync row without
 				// anybody having clicked Enable.
-				await scheduleFromSettings(ctx);
+				const settings = await scheduleFromSettings(ctx);
 
-				const state = await readState(ctx);
+				const { state, kept } = await readStateAndLive(ctx);
 				await noteWaiting(ctx, state, now);
-				const input = await loadWidget(ctx, state, now, lang);
+				const input = await loadWidget(ctx, state, now, lang, {
+					...(settings && { live: liveOption(ctx, settings, kept) }),
+					siteUrl: ctx.site.url,
+				});
 				return { blocks: renderWidget(input) };
 			},
 		},
@@ -255,11 +268,15 @@ function contentOf(event: unknown): Record<string, unknown> | undefined {
  * `CronAccess.schedule` upserts on (plugin, task), so calling this from
  * three different entry points costs one statement and cannot duplicate a
  * task.
+ *
+ * Returns the settings it read, or null when they could not be read, so a
+ * caller that needs them does not spend a second bridge call.
  */
-async function scheduleFromSettings(ctx: PluginContext): Promise<void> {
+async function scheduleFromSettings(ctx: PluginContext): Promise<SettingsResult | null> {
 	let interval = DEFAULT_SYNC_INTERVAL;
+	let result: SettingsResult | null = null;
 	try {
-		const result = await readSettings(ctx);
+		result = await readSettings(ctx);
 		if (result.ok) interval = result.settings.syncInterval;
 		else if (result.partial.syncInterval) interval = result.partial.syncInterval;
 	} catch {
@@ -267,6 +284,20 @@ async function scheduleFromSettings(ctx: PluginContext): Promise<void> {
 		// one scheduled at the wrong cadence.
 	}
 	await ensureScheduled(ctx, interval);
+	return result;
+}
+
+/**
+ * What the widget needs to read live when its store has nothing current,
+ * or the reason the settings cannot answer live at all, which is then the
+ * reason the widget is empty.
+ */
+function liveOption(ctx: PluginContext, settings: SettingsResult, kept: LiveWeek | null, fresh = false): LiveOption {
+	if (!settings.ok) return { blocked: failure("notConfigured", { missing: settings.missing.join(",") }) };
+	if (settings.settings.provider !== "demo" && !settings.settings.siteTag) return { blocked: failure("noSiteTagYet") };
+	const provider = buildProvider(ctx, settings.settings);
+	if (!provider) return { blocked: failure("noNetwork") };
+	return { provider, source: liveSource(settings.settings), kept, fresh };
 }
 
 type Interaction =

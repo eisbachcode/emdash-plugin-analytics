@@ -76,13 +76,36 @@ export function comparisonText(current: number, previous: number | null, locale?
 	if (previous === null) return t(lang, "noEarlierPeriod");
 	if (previous === 0 && current === 0) return t(lang, "noneEitherPeriod");
 	if (previous === 0) return t(lang, "upFromNone");
+	return t(lang, "vsPrevious", { change: percentChange(current, previous, lang) });
+}
+
+/** "+25%", "-3%", in the reader's notation. `previous` must not be zero. */
+export function percentChange(current: number, previous: number, locale?: string): string {
 	const ratio = (current - previous) / previous;
-	const change = new Intl.NumberFormat(lang, {
+	return new Intl.NumberFormat(langOf(locale), {
 		style: "percent",
 		signDisplay: "exceptZero",
 		maximumFractionDigits: Math.abs(ratio) < 0.01 ? 1 : 0,
 	}).format(ratio);
-	return t(lang, "vsPrevious", { change });
+}
+
+/**
+ * The same comparison, short enough for a table cell. Empty when there is
+ * no earlier period to compare with, which is not the same as no change.
+ */
+export function changeText(current: number, previous: number | null, locale?: string): string {
+	if (previous === null) return "";
+	if (previous === 0) return current === 0 ? "—" : t(langOf(locale), "changeFromNone");
+	return percentChange(current, previous, locale);
+}
+
+/** A path as it reads in the address bar: `/news/%E3%81%82` is `/news/あ`. */
+export function readablePath(path: string): string {
+	try {
+		return decodeURI(path);
+	} catch {
+		return path;
+	}
 }
 
 /** A UTC day, written the reader's way: "18 Sept 2026", "18.09.2026". */

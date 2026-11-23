@@ -66,7 +66,13 @@ export interface EntryRow {
 	recentViews?: number;
 	/** Page views from the store over `today - 29` to `today - 8`, summed once a day. */
 	olderViews?: number;
-	/** The day `olderViews` was summed for. */
+	/**
+	 * The part of `olderViews` from `today - 13` to `today - 8`. With the
+	 * recent window's first day it makes the seven days before `views7`.
+	 * Absent until a pass that sums it has reached the entry.
+	 */
+	olderPrev?: number;
+	/** The day `olderViews` and `olderPrev` were summed for. */
 	olderDay?: Day;
 	updatedAt: string;
 }
