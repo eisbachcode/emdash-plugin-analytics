@@ -40,9 +40,9 @@ import {
 	DEFAULT_RANGE,
 	loadPage,
 	PAGE_PATH,
+	isRangeAction,
 	PAGE_REFRESH_ACTION,
 	parseRange,
-	RANGE_ACTION,
 	renderPage,
 	SETUP_ACTION,
 	type RangeDays,
@@ -323,7 +323,7 @@ function parseInteraction(input: unknown): Interaction {
 		if (isAction && record.action_id === PAGE_REFRESH_ACTION) {
 			return { surface: "page", kind: "refresh", range: parseRange(record.value) };
 		}
-		if (isAction && record.action_id === RANGE_ACTION) {
+		if (isAction && isRangeAction(record.action_id)) {
 			return { surface: "page", kind: "load", range: parseRange(record.value) };
 		}
 		if (isAction && record.action_id === SETUP_ACTION) {

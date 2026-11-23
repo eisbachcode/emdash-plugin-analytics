@@ -7,9 +7,9 @@ import { CONTENT_PATH } from "../src/ui/content.js";
 import { formatDay } from "../src/ui/format.js";
 import {
 	PAGE_PATH,
+	isRangeAction,
 	PAGE_REFRESH_ACTION,
 	parseRange,
-	RANGE_ACTION,
 	mergeDays,
 	renderPage,
 	summarizeDaily,
@@ -164,12 +164,22 @@ describe("renderPage", () => {
 		// buttons beside it.
 		const blocks = renderPage(input({ range: 90 }));
 		expect(find(blocks, "select")).toHaveLength(0);
-		const ranges = find(blocks, "button").filter((b) => b.action_id === RANGE_ACTION);
+		const ranges = find(blocks, "button").filter((b) => isRangeAction(b.action_id));
 		expect(ranges.map((b) => b.value)).toEqual([7, 30, 90]);
 		expect(ranges.find((b) => b.value === 90)?.style).toBe("primary");
 		expect(ranges.filter((b) => b.style === "primary")).toHaveLength(1);
 		const refresh = find(blocks, "button").find((b) => b.action_id === PAGE_REFRESH_ACTION);
 		expect(refresh?.value).toBe(90);
+	});
+
+	it("gives the elements of an actions block distinct action ids", () => {
+		// The admin renders each element under its action id as the React key,
+		// so two buttons with one id are two children with the same key.
+		for (const block of find(renderPage(input()), "actions")) {
+			const ids = (block.elements as AnyBlock[]).map((el) => el.action_id).filter((id) => id !== undefined);
+			expect(ids.length).toBeGreaterThan(0);
+			expect(new Set(ids).size, ids.join(", ")).toBe(ids.length);
+		}
 	});
 
 	it("links to the provider's own dashboard when there is one, and not otherwise", () => {
