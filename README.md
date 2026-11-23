@@ -242,9 +242,9 @@ Fill these in under Plugins → Analytics → Settings.
 | Cloudflare account ID | Manage Account → Account Home |
 | Web Analytics site tag | **The site tag, not the beacon token.** They are different values. In the Cloudflare dashboard it is the ID at the end of the site's **Manage site** link (`…/web-analytics/edit/<site tag>`); the analytics view does not show it. Leave empty and the widget lists the sites on the account that had traffic in the last 30 days, with their hostnames, so you can copy the right one |
 | Hostnames to count | Comma-separated. Empty uses the site URL and its `www` form. One site tag often also covers `*.pages.dev` preview deploys, which should not be counted as production traffic |
-| Sync every | 15 minutes by default |
+| Sync every | 15 minutes by default. On EmDash 1.5.0 and later each run updates the site's totals and a batch of per-entry numbers; on earlier versions it takes turns between the two |
 | Keep daily rows for | 90 days by default |
-| Paths per sync tick | 36 by default and at most: the most one tick can handle within the ten subrequests a sandboxed invocation gets before EmDash 1.5.0. Lower it to write fewer D1 rows per day |
+| Paths per sync tick | 36 by default and at most: the most one sync step can handle within the ten subrequests a sandboxed invocation gets before EmDash 1.5.0. Lower it to write fewer D1 rows per day |
 
 ### Trying it without Cloudflare
 
@@ -406,8 +406,11 @@ One account per site owner, or accept and document it.
 - Large sites catch up slowly. Every sync step fits the ten calls a
   sandboxed invocation gets before EmDash 1.5.0, so the index walk, the
   daily 30-day sum and the per-path sync each handle a few dozen entries
-  per tick. EmDash 1.5.0 raised that limit to thirty; the plugin does not
-  use the extra room yet.
+  per step. EmDash 1.5.0 raised that limit to thirty, and a sync run there
+  takes two steps instead of one. It does not take a third: on Cloudflare
+  every plugin task due in the same minute shares one limit of 32 Worker
+  invocations, and a run that used all thirty calls would leave none for
+  the others.
 
 ## Licence
 

@@ -15,6 +15,7 @@ import { PluginBridge } from "@emdash-cms/plugin-test/worker";
 const calls: string[] = [];
 const seen = new WeakSet<object>();
 const failing = new Set<string>();
+let limit: number | undefined;
 let installed = false;
 
 function install(): void {
@@ -28,6 +29,9 @@ function install(): void {
 			if (!seen.has(this)) {
 				seen.add(this);
 				calls.push(name);
+				if (limit !== undefined && calls.length > limit) {
+					return Promise.reject(new Error("Too many subrequests (test)"));
+				}
 				if (failing.delete(name)) return Promise.reject(new Error(`${name} failed (test)`));
 			}
 			return (original as (...a: unknown[]) => unknown).apply(this, args);
@@ -41,6 +45,20 @@ export async function bridgeCalls(invocation: () => Promise<unknown>): Promise<s
 	calls.length = 0;
 	await invocation();
 	return [...calls];
+}
+
+/**
+ * Run one invocation on a host that allows it `max` bridge calls: every
+ * call after that is rejected, as Cloudflare rejects a subrequest over the
+ * sandbox limit. Returns the calls it attempted, the rejected ones included.
+ */
+export async function bridgeCallsWithLimit(max: number, invocation: () => Promise<unknown>): Promise<string[]> {
+	limit = max;
+	try {
+		return await bridgeCalls(invocation);
+	} finally {
+		limit = undefined;
+	}
 }
 
 /**

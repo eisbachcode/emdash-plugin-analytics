@@ -59,8 +59,9 @@ describe("demo data", () => {
 		// With three demo paths the table lists every page, so its views
 		// add up to the page-view card, unless the two cover different days.
 		host = await demoHost();
-		// Overview with backfill, indexing, then an overview on the regular window.
-		for (let i = 0; i < 3; i++) await tick(host);
+		// Two ticks of two steps: overview with backfill and indexing, then an
+		// overview on the regular window and the next slot.
+		for (let i = 0; i < 2; i++) await tick(host);
 
 		const { blocks } = await host.admin.loadWidget("traffic");
 		const cards = blocks.find((b): b is StatsBlock => b.type === "stats");

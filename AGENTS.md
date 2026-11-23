@@ -47,10 +47,18 @@ anything a later release added. A plain `pnpm install` is enough.
   through the free plan's daily budget at a 15-minute cadence.
 - **Count your bridge calls.** A sandboxed invocation gets ten subrequests
   before EmDash 1.5.0 and thirty from it; the floor is 1.0.1, so ten is the
-  budget. Every `ctx` call spends one, `log` and `cron` included. The sync tick
-  alternates phases and Refresh only schedules a tick for exactly this
-  reason. `tests/budget.test.ts` counts each invocation's worst case; run it
-  after any change that adds a `ctx` call.
+  budget of every route, hook and sync step. Every `ctx` call spends one,
+  `log` and `cron` included. A sync step is one phase and Refresh only
+  schedules a tick for exactly this reason. `tests/budget.test.ts` counts
+  each invocation's worst case; run it after any change that adds a `ctx`
+  call.
+- **A scheduled tick runs two steps where the host lets it** (`runTick` in
+  `src/sync/scheduler.ts`). No API tells a plugin the host's version or
+  limit, so the first step's state write carries a mark that the second
+  step's write removes; a tick that finds the mark runs one step until the
+  next UTC day. Keep it at two: on Cloudflare everything in one scheduled
+  event shares 32 Worker invocations, bridge calls included. In tests,
+  `tick()` is one step and `fullTick()` is the tick as the host fires it.
 - **The widget reads the provider when the store is stale.** Before the
   first sync, without a scheduler, or with a last sync over an hour old,
   it asks for its own seven days and keeps the answer for five minutes

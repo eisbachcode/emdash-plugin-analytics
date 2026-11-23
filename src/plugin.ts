@@ -31,6 +31,7 @@ import {
 	requestRefresh,
 	runReconcile,
 	runSync,
+	runTick,
 	RECONCILE_TASK,
 	REFRESH_TASK,
 	SYNC_TASK,
@@ -78,7 +79,7 @@ const plugin: SandboxedPlugin = {
 			timeout: CRON_TIMEOUT_MS,
 			handler: async (event, ctx) => {
 				if (event.name === SYNC_TASK) {
-					await runSync(ctx);
+					await runTick(ctx);
 					return;
 				}
 
