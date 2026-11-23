@@ -10,6 +10,7 @@ import { TOOL_ROUTES } from "../src/tools/load.js";
 import { bridgeCalls, failNextCall } from "./bridge-calls.js";
 import {
 	daysBack,
+	fullTick,
 	graphql,
 	newHost,
 	NOW,
@@ -112,6 +113,43 @@ describe("sync ticks", () => {
 		await expect(host.inspect.storage.get("daily", `${window[7]}|${asked[35]}`)).resolves.not.toBeNull();
 		// Eight days of seven views: the last seven make views7, all eight the
 		// recent part of views30.
+		await expect(host.inspect.storage.get("entries", asked[35]!)).resolves.toMatchObject({ views7: 49, views30: 56 });
+	});
+
+	it("a tick of two steps on a host with room: an overview, then a full paths chunk", async () => {
+		host = await newHost("cloudflare");
+		const paths = pathsOf(40);
+		await seedEntries(host, paths);
+		await setState(host, { ...synced, provider: "cloudflare" });
+
+		const window = daysBack(8);
+		const series = window.map((date) => ({
+			count: 10,
+			sum: { visits: 5 },
+			avg: { sampleInterval: 1 },
+			dimensions: { date },
+		}));
+		const asked = paths.slice(0, PATHS_PER_TICK);
+		const rows = asked.flatMap((path) =>
+			window.map((date) => ({
+				count: 7,
+				sum: { visits: 3 },
+				avg: { sampleInterval: 1 },
+				dimensions: { date, requestPath: path },
+			})),
+		);
+		await host.http.respond(
+			GRAPHQL_ENDPOINT,
+			graphql({ totals: [{ count: 80, sum: { visits: 40 } }], series, pages: [], refs: [], geo: [] }),
+		);
+		await host.http.respond(GRAPHQL_ENDPOINT, graphql({ [RUM_DATASET]: rows }));
+
+		const calls = await bridgeCalls(fullTick(host));
+
+		// Twenty of the thirty calls EmDash 1.5.0 allows, and of the 32 Worker
+		// invocations that everything in one scheduled event shares.
+		expect(calls.length, calls.join(", ")).toBeLessThanOrEqual(2 * LIMIT);
+		await expect(host.inspect.storage.get("rollup", addDays(TODAY, -1))).resolves.not.toBeNull();
 		await expect(host.inspect.storage.get("entries", asked[35]!)).resolves.toMatchObject({ views7: 49, views30: 56 });
 	});
 

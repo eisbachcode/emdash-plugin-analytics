@@ -20,10 +20,11 @@
  *    to downgrade. Three layers, because getting this wrong corrupts the
  *    store silently.
  *
- * The tick alternates between an overview phase and a paths phase rather
- * than doing both, which is what keeps either side inside the budget.
- * Work that needs no provider (walking the content, summing stored days)
- * borrows paths slots rather than adding calls to one.
+ * A step is either the overview phase or the paths phase, never both,
+ * which is what keeps it inside the budget. Work that needs no provider
+ * (walking the content, summing stored days) borrows paths slots rather
+ * than adding calls to one. A scheduled tick runs one step, and a second
+ * one on a host that has the room (`runTick`).
  */
 
 import type { PluginContext } from "emdash/plugin";
@@ -129,6 +130,14 @@ export interface SyncState {
 	backfilled?: boolean;
 	/** Keyset cursor into `entries` while a provider switch resets views. */
 	wipeCursor?: string;
+	/**
+	 * Written by a tick's first step when a second one follows, and taken
+	 * back by that step's own write. A tick that finds it knows the host cut
+	 * the last second step short.
+	 */
+	second?: "pending";
+	/** The UTC day a second step was found cut short. Ticks on that day run one step. */
+	oneStepOn?: Day;
 }
 
 /** Referrer, country and device rows kept from each overview, for the analytics page. */
@@ -159,6 +168,8 @@ export interface SyncOutcome {
 	skipped: number;
 	paths?: number;
 	problem?: Problem;
+	/** True when this was a tick's first step and a second one is to follow. */
+	more?: boolean;
 }
 
 /**
@@ -254,14 +265,23 @@ export function buildProvider(ctx: PluginContext, settings: AnalyticsSettings): 
  *
  * `overview` runs the overview phase whatever the alternation says: a
  * Refresh is asked for to update the totals, which only that phase reads.
+ *
+ * `step` is the step's place in a scheduled tick (`runTick`). A first step
+ * that may be followed by a second says so in the state it writes; a
+ * second step's write takes that back.
  */
 export async function runSync(
 	ctx: PluginContext,
 	now: Date = new Date(),
-	options: { overview?: boolean } = {},
+	options: { overview?: boolean; step?: "first" | "second" } = {},
 ): Promise<SyncOutcome> {
 	const state = await readState(ctx);
 	const result = await readSettings(ctx);
+
+	const today = utcDay(now);
+	if (options.step !== "second" && state.second) state.oneStepOn = today;
+	delete state.second;
+	const twoSteps = options.step === "first" && state.oneStepOn !== today;
 
 	// Numbers from one provider must never be read as another's: demo data
 	// left behind after switching to Cloudflare would look like real
@@ -290,7 +310,22 @@ export async function runSync(
 		return await suggestSite(ctx, provider, state, now);
 	}
 
-	if (options.overview || state.phase !== "paths") return await runOverviewPhase(ctx, provider, state, now);
+	// Only a step that succeeds is followed by another, and `fail` drops
+	// the mark again.
+	if (twoSteps) state.second = "pending";
+	const outcome = await runStep(ctx, provider, settings, state, now, options.overview);
+	return twoSteps && outcome.ok ? { ...outcome, more: true } : outcome;
+}
+
+async function runStep(
+	ctx: PluginContext,
+	provider: Provider,
+	settings: AnalyticsSettings,
+	state: SyncState,
+	now: Date,
+	overview: boolean | undefined,
+): Promise<SyncOutcome> {
+	if (overview || state.phase !== "paths") return await runOverviewPhase(ctx, provider, state, now);
 
 	// Catching up on content that predates the plugin comes first: the
 	// paths phase can only ask about paths the index already knows.
@@ -302,6 +337,34 @@ export async function runSync(
 	}
 
 	return await runPathsPhase(ctx, provider, settings, state, now);
+}
+
+/**
+ * A scheduled tick: one step, and a second one where the host has room.
+ *
+ * A step fits ten bridge calls, all a sandboxed invocation gets before
+ * EmDash 1.5.0. From 1.5.0 it gets thirty, so a tick there runs the
+ * overview and a paths slot instead of taking turns, and the numbers of
+ * both are as fresh as the sync interval.
+ *
+ * Nothing tells a plugin which host it runs on or what a site set the limit
+ * to, so the tick finds out. The first step's state says a second one
+ * follows, the second step's own write takes that back, and a tick that
+ * still finds the mark runs one step for the rest of the UTC day. That
+ * costs no call. A step cut short repeats, like any step that died.
+ *
+ * Two steps, not three: on Cloudflare everything a scheduled event runs
+ * shares 32 Worker invocations, bridge calls included, so a tick that took
+ * all thirty would leave none for another plugin's task in the same minute.
+ */
+export async function runTick(ctx: PluginContext, now: Date = new Date()): Promise<SyncOutcome> {
+	const first = await runSync(ctx, now, { step: "first" });
+	if (!first.more) return first;
+	try {
+		return await runSync(ctx, now, { step: "second" });
+	} catch {
+		return first;
+	}
 }
 
 /** Does the stored index come from an older walk, or has a rebuild been asked for? */
@@ -749,6 +812,7 @@ async function fail(
 	// Keep the last good numbers. Stale and labelled beats blank.
 	await writeState(ctx, {
 		...state,
+		second: undefined,
 		lastError: error,
 		lastProblem: problem,
 		lastErrorAt: now.toISOString(),

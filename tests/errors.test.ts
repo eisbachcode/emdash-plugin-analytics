@@ -60,6 +60,8 @@ describe("a failed tick", () => {
 		await host.http.respond(GRAPHQL_ENDPOINT, new Response("upstream down", { status: 502 }));
 		await host.http.respond(GRAPHQL_ENDPOINT, json(OVERVIEW));
 		await host.http.respond(GRAPHQL_ENDPOINT, json(PATHS));
+		// The paths step that succeeds is a tick's first, so an overview follows it.
+		await host.http.respond(GRAPHQL_ENDPOINT, json(OVERVIEW));
 
 		const failed = await tick(host);
 		expect(failed?.lastProblem?.key).toBe("cfHttp");

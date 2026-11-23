@@ -2,7 +2,7 @@ import { createPluginRuntimeTestHost, type PluginRuntimeTestHost } from "@emdash
 import { expect, vi } from "vitest";
 
 import { INDEX_VERSION } from "../src/index/bootstrap.js";
-import type { SyncState } from "../src/sync/scheduler.js";
+import { STATE_KEY, type SyncState } from "../src/sync/scheduler.js";
 import { addDays, utcDay } from "../src/sync/window.js";
 
 /**
@@ -120,8 +120,22 @@ export function graphql(body: unknown): Response {
 	});
 }
 
-export const tick = (runtime: PluginRuntimeTestHost, name = "sync") => () =>
-	runtime.transport.invokeHook("cron", { name, scheduledAt: NOW.toISOString() });
+/** A scheduled tick as the host fires it: one step, and a second where there is room. */
+export const fullTick = (runtime: PluginRuntimeTestHost) => () =>
+	runtime.transport.invokeHook("cron", { name: "sync", scheduledAt: NOW.toISOString() });
+
+/**
+ * One step of the sync: a tick on a host that already cut a second step
+ * short today, which is what the stored state then says. Most tests are
+ * about what a single step does, so this is the default.
+ */
+export const tick = (runtime: PluginRuntimeTestHost, name = "sync") => async () => {
+	if (name === "sync") {
+		const state = await runtime.inspect.kv.get<SyncState>(STATE_KEY);
+		await runtime.fixtures.plugin.kv(STATE_KEY, { phase: "overview", ...state, oneStepOn: TODAY });
+	}
+	return await runtime.transport.invokeHook("cron", { name, scheduledAt: NOW.toISOString() });
+};
 
 /** A site that is fully caught up: index walked by this build, today's older pass done. */
 export const synced: SyncState = {

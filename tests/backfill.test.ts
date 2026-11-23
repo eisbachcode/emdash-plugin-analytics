@@ -47,11 +47,12 @@ describe("the first sync", () => {
 		expect(saved).toMatchObject({ success: true });
 		const today = utcDay(new Date());
 
-		// Tick 1: overview with backfill. Tick 2: indexing, no request.
-		// Tick 3: overview again, now over the regular window.
+		// Tick 1: overview with backfill, then indexing, which asks nothing.
+		// Tick 2: overview again, now over the regular window, then a slot
+		// that has no path to ask about.
 		await host.http.respond(GRAPHQL_ENDPOINT, graphqlReply());
 		await host.http.respond(GRAPHQL_ENDPOINT, graphqlReply());
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < 2; i++) {
 			await host.transport.invokeHook("cron", { name: "sync", scheduledAt: new Date().toISOString() });
 		}
 
