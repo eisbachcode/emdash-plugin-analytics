@@ -50,6 +50,20 @@ export const PAGE_PATH = "/analytics";
 /** The per-entry page (`./content.ts`), named here to keep the import one-way. */
 const CONTENT_PAGE_PATH = "/analytics/content";
 export const RANGE_ACTION = "analytics:range";
+
+/**
+ * The action id of one range's button. The admin keys the elements of an
+ * `actions` block by their action id, so buttons sharing one id would be
+ * children with the same React key. The range still travels in the value.
+ */
+export function rangeAction(days: number): string {
+	return `${RANGE_ACTION}|${days}`;
+}
+
+/** A range button's id, or the plain id that the setup check's way back sends. */
+export function isRangeAction(id: unknown): boolean {
+	return id === RANGE_ACTION || (typeof id === "string" && id.startsWith(`${RANGE_ACTION}|`));
+}
 export const PAGE_REFRESH_ACTION = "analytics:page:refresh";
 /** Opens the setup check (`./setup.ts`), carrying the range to return to. */
 export const SETUP_ACTION = "analytics:setup";
@@ -383,7 +397,7 @@ function controls(input: PageInput, lang: Lang) {
 	// closed, and its label sets it out of line with the buttons beside it.
 	const elements = [
 		...RANGES.map((days) =>
-			button(RANGE_ACTION, t(lang, "rangeDays", { count: days }), {
+			button(rangeAction(days), t(lang, "rangeDays", { count: days }), {
 				style: days === input.range ? "primary" : "secondary",
 				value: days,
 			}),
