@@ -11,11 +11,19 @@ Keep `emdash-plugin.jsonc` aligned with the runtime implementation, declare ever
 `emdash` is a peer with a floor and no ceiling (`>=1.0.1`, the same as
 `env:emdash` in the manifest). Never write the floor as `>=1.0.0` or
 `^1.0.0`: npm carries an accidental, deprecated `emdash@1.0.0` published
-in April 2026, five months before the real 1.0. The dev dependency stays
-below the next major until the toolchain is moved on purpose. Built with
-`@emdash-cms/plugin-cli@0.13.1`, `@emdash-cms/plugin-test@0.2.6` and
-`@emdash-cms/blocks@1.0.1`; `scripts/compat-matrix.sh` runs the suite
-against later EmDash releases. A plain `pnpm install` is enough.
+in April 2026, five months before the real 1.0.
+
+The toolchain is one EmDash release, pinned exactly and moved on purpose:
+`emdash@1.6.0`, `@emdash-cms/blocks@1.6.0`, `@emdash-cms/plugin-cli@0.13.7`
+and `@emdash-cms/plugin-test@0.2.13`, the harness that pins that host, with
+`zod` at the version that host pins (4.6.7): a second Zod beside the host's
+makes `tsc` run out of memory. Move the five together.
+
+Types and tests therefore see EmDash 1.6.0, not the floor, and an API that
+1.0.1 lacks typechecks here. What holds the floor is the `EmDash 1.0.1` CI
+job: it typechecks and runs the suite against 1.0.1 with the harness of its
+time (`scripts/compat-matrix.sh 1.0.1:0.2.6`). Run that before relying on
+anything a later release added. A plain `pnpm install` is enough.
 
 ## Two builds
 
@@ -38,7 +46,8 @@ against later EmDash releases. A plain `pnpm install` is enough.
 - **Read before write.** Blind upserts cost roughly 5 D1 rows each and blow
   through the free plan's daily budget at a 15-minute cadence.
 - **Count your bridge calls.** A sandboxed invocation gets ten subrequests
-  and every `ctx` call spends one, `log` and `cron` included. The sync tick
+  before EmDash 1.5.0 and thirty from it; the floor is 1.0.1, so ten is the
+  budget. Every `ctx` call spends one, `log` and `cron` included. The sync tick
   alternates phases and Refresh only schedules a tick for exactly this
   reason. `tests/budget.test.ts` counts each invocation's worst case; run it
   after any change that adds a `ctx` call.
@@ -82,7 +91,7 @@ pnpm install
 pnpm typecheck
 pnpm test        # emdash-plugin validate, then vitest
 pnpm build
-./scripts/compat-matrix.sh 1.0.1   # the suite against other EmDash releases
+./scripts/compat-matrix.sh 1.0.1:0.2.6   # types and suite on another EmDash release, with its harness
 ```
 
 ## Releases
