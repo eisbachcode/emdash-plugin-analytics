@@ -1,5 +1,37 @@
 # @eisbachcode/emdash-plugin-analytics
 
+## 0.4.0
+
+### Minor Changes
+
+- 5164e58: Adds links, devices and a chart:
+  
+  - Every row about a page now links to the page on the site, and a row that belongs to an entry links to that entry's editor: in the widget's page table, in Top entries on the Analytics page and on the per-entry page. The page link needs the site URL; the setup check says when it is missing.
+  - The Analytics page lists devices (desktop, mobile, tablet) beside referrers and countries, for the same days.
+  - The dashboard widget charts page views and visits over the stored days of the last 30.
+  - The setup check and the empty states link to the plugin's settings when the fix is a value there.
+- 5164e58: Shows how each entry's last seven days compare with the seven before. The per-entry page has a **Change, 7 days** column ("+25%", "-10%", "from 0"), and the Analytics page names the top entry that grew the most ("Getting attention"). Both weeks come from the plugin's own store, so the comparison is exact; Cloudflare answers for the earlier week only from a sample.
+  
+  No setting and no stored data changes by hand. The earlier week is summed by the daily pass that already sums the 30-day views, so after the update the column fills with that pass's next run, on the following UTC day at the latest, provided the store holds two weeks of history. Until then, and for an entry published during the earlier week, the cell stays empty, and the page says from which day it fills. The MCP tools are unchanged and need no new approval.
+- cb8627e: On EmDash 1.5.0 and later, each scheduled sync now updates the site's totals and a batch of per-entry numbers in the same run. Until now a run did one or the other, so each kind of number was refreshed every second run, and the index walk and the daily 30-day sum of a large site took twice as many runs.
+  
+  EmDash 1.5.0 raised the number of calls a sandboxed plugin may make per run from ten to thirty. The plugin uses at most twenty of them, because on Cloudflare every plugin task due in the same minute shares one limit of 32 Worker invocations.
+  
+  Nothing changes on EmDash 1.0.1 to 1.4.0, or on a site that set the sandbox limit back to ten: the plugin notices that the second half of a run did not finish, and does one half per run for the rest of the day.
+- 5164e58: The dashboard widget no longer needs the scheduled sync to show numbers. When the plugin's store has nothing current, the widget reads the last seven days from the provider itself: before the first sync, on a site that runs no scheduled tasks (a Worker without a Cron Trigger), and when the last sync is more than an hour old. It says "Read live" with the time, keeps each answer for five minutes, and Refresh asks again at once. With demo data the numbers therefore show as soon as the data source is switched, without waiting for a sync.
+  
+  Stored history, the comparison with the week before, the per-entry page, the editor panel and the MCP tools still come from the sync, so a site without scheduled tasks gets the widget and the Analytics page only. A widget on a site whose sync runs on time behaves as before and makes no provider request.
+  
+  Before the first sync, the widget now also names what is missing instead of saying that the first sync is pending: the API token or account ID, or the site tag, with a link to the plugin's settings.
+
+### Patch Changes
+
+- 5164e58: Requests to Cloudflare now ask for account-based rate limiting, so the plugin's query budget (300 per five minutes for the account) is no longer shared with every other tool that uses a token of the same Cloudflare user. An exhausted budget is reported as the rate limit it is. Paths with percent-encoded characters are shown decoded, so `/news/%E6%9D%B1%E4%BA%AC/` reads `/news/東京/`.
+- 608bf1f: Built and tested with EmDash 1.6.0. EmDash 1.0.1 stays the oldest supported version, and the suite passes on every release from 1.0.1 to 1.6.0.
+  
+  On EmDash 1.5.0 and later, a site that installs the plugin from npm now sees it in the admin's Plugins list as "Analytics" with its description, instead of its identifier.
+- bc69beb: Fixes the 7, 30 and 90 day buttons on the Analytics page sharing one identifier, which the admin uses to tell the buttons of a row apart. React reported the duplicate key in the browser console during development.
+
 ## 0.3.2
 
 ### Patch Changes
